@@ -1,0 +1,19 @@
+# Task Register
+
+当リポジトリにおけるすべてのTaskの現在状態および発行履歴を管理するレジスタです。
+
+## Current Active Task
+
+| Task ID | Status | Location | Started | Summary |
+|---|---|---|---|---|
+| DEV-TASK-0006 | ACTIVE | tasks/active/DEV-TASK-0006.md | 2026-08-07 | Task Lifecycle・Planner / Builder間運用標準化 |
+
+## Task History
+
+| Task ID | Status | Location | Started | Completed | Summary |
+|---|---|---|---|---|---|
+| DEV-TASK-0001 | COMPLETED | tasks/completed/DEV-TASK-0001.md | 2026-08-07 | 2026-08-07 | AI Development Standard 基盤整備 |
+| DEV-TASK-0002 | COMPLETED | tasks/completed/DEV-TASK-0002.md | 2026-08-07 | 2026-08-07 | Builder運用・Planner Handoff標準化 |
+| DEV-TASK-0003 | COMPLETED | tasks/completed/DEV-TASK-0003.md | 2026-08-07 | 2026-08-07 | Git / GitHub標準化・初回Repository同期・可搬性修正 |
+| DEV-TASK-0004 | COMPLETED | tasks/completed/DEV-TASK-0004.md | 2026-08-07 | 2026-08-07 | 受け渡しフォルダ簡素化・最新1 ZIP運用への移行 |
+| DEV-TASK-0005 | COMPLETED | tasks/completed/DEV-TASK-0005.md | 2026-08-07 | 2026-08-07 | Handoff ZIPクロスプラットフォーム化・生成検証標準化 |
