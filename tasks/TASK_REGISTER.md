@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0010 | ACTIVE | tasks/active/DEV-TASK-0010.md | 2026-08-08 | Project Initializer実動作修正・Template最終受入 |
 
 ## Task History
 
