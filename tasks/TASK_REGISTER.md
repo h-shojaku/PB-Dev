@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| DEV-TASK-0009 | ACTIVE | tasks/active/DEV-TASK-0009.md | 2026-08-08 | Definition of Done・Project初期化・Template Repository最終統合 |
+| (なし) | - | - | - | 現在進行中のActive Taskはありません |
 
 ## Task History
 
@@ -20,3 +20,4 @@
 | DEV-TASK-0006 | COMPLETED | tasks/completed/DEV-TASK-0006.md | 2026-08-07 | 2026-08-07 | Task Lifecycle・Planner / Builder間運用標準化 |
 | DEV-TASK-0007 | COMPLETED | tasks/completed/DEV-TASK-0007.md | 2026-08-07 | 2026-08-07 | Review Evidence Timing修正・Handoff世代境界の明確化 |
 | DEV-TASK-0008 | COMPLETED | tasks/completed/DEV-TASK-0008.md | 2026-08-07 | 2026-08-07 | AI / Session切替・状態復元・Continuity標準化 |
+| DEV-TASK-0009 | COMPLETED | tasks/completed/DEV-TASK-0009.md | 2026-08-08 | 2026-08-08 | Definition of Done・Project初期化・Template Repository最終統合 |
