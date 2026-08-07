@@ -1,8 +1,11 @@
-# OS / Editor temporary files
+# OS / Editor / IDE temporary files
 .DS_Store
 Thumbs.db
 *.tmp
 *.log
+.gemini/
+.geminiignore
+.terminal-input-helper/
 
 # Handoff Delivery Area (Delivery artifacts are not tracked in Git)
 /受け渡し/

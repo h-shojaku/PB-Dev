@@ -32,13 +32,13 @@ git push origin main
   ↓
 working tree clean 確認
   ↓
-`受け渡し/` ディレクトリ準備
+`受け渡し/` ディレクトリ準備 & 旧配送物削除
   ↓
-旧配送物 (ZIP) を削除
+標準スクリプト (scripts/create_handoff.ps1 / .py) で最新 1 ZIP 生成
   ↓
-最新 Handoff ZIP 生成
+アーカイブ自動検証・展開テスト合格確認
   ↓
-`受け渡し/` 内が最新 ZIP 1個のみであることを検証
+`受け渡し/` 内が最新 ZIP 1個のみであることを確認
 ```
 
 - Handoff ZIPは原則として `commit` および `push` 完了後に生成し、`REPORT.md` および `MANIFEST.md` に確定した Git Commit ID および Branch 情報を記録します。
@@ -47,7 +47,7 @@ working tree clean 確認
 各コミットは、対応するタスクとの相互追跡を可能にするためコミットメッセージに Task ID を含めます。
 
 - **標準メッセージフォーマット**: `<TASK-ID>: <summary>`
-- **例**: `DEV-TASK-0004: simplify Planner handoff`
+- **例**: `DEV-TASK-0005: make Handoff ZIP portable`
 
 1タスク内で合理的な理由（機能単位の分離等）により複数コミットに分割することは認められますが、すべてタスクIDが含まれる必要があります。
 
