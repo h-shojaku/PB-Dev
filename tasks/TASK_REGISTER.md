@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0007 | ACTIVE | tasks/active/DEV-TASK-0007.md | 2026-08-07 | Review Evidence Timing修正・Handoff世代境界の明確化 |
 
 ## Task History
 
