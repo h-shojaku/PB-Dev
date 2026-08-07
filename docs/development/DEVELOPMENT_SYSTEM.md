@@ -30,6 +30,23 @@
 - Builderは、人間の明示的な判断を必要としない作業（調査、実装、テスト実行、ドキュメント更新、検証等の定義されたプロセス）について、途中確認で停止せず自律的に実行・完結します。
 - 自律進行範囲および人間判断のための停止境界の詳細は [DECISION_RULES.md](./DECISION_RULES.md) に定義します。
 
+## Task Management Principle & Lifecycle
+- **Task ID 標準**: `<PREFIX>-TASK-XXXX` （当リポジトリでは `DEV-TASK-XXXX`）を識別子およびファイル名（`<TASK-ID>.md`）とします。
+- **One Active Task**: 原則として同時に着手するActive Taskは `tasks/active/` に配置される 1 件のみとします。
+- **Task Instruction Immutability**: Plannerから発行されたTask文書は指示レコードであり不可変です。Builderが要件や受入条件を書き換えてはなりません。
+- **Task Register**: `tasks/TASK_REGISTER.md` にて全タスクの現在状態（ACTIVE / BLOCKED / COMPLETED）および過去履歴を一元管理します。
+- **Task Intake Persistence**: タスク受領直後、`tasks/active/<TASK-ID>.md` への正式登録および `TASK_REGISTER.md` の更新内容を GitHub へコミット・プッシュして受付状態を永続化します。
+- 詳細は [TASK_RULES.md](./TASK_RULES.md) に定義します。
+
+## Planner Review Gate
+- **Review Gate**: タスク完遂後、Builderが提出した Handoff ZIP を Planner がレビューします。
+- **3分類の判定結果**:
+  1. `ACCEPTED`: 承認。タスク終了・次タスクへ。
+  2. `CHANGES_REQUIRED`: 修正要求。過去タスクやGit履歴を上書きせず、修正用の新 Task ID（例: `DEV-TASK-0007`）を発行して対処します。
+  3. `HUMAN_DECISION_REQUIRED`: 人間判断要求。人間による意思決定を整理提示します。
+- **No Next Task Before Review**: BuilderはPlannerのレビューが完了する前に未発行の次タスクへ着手してはなりません。
+- 詳細は [REVIEW_RULES.md](./REVIEW_RULES.md) に定義します。
+
 ## Repository Areas
 本リポジトリは以下の標準構造により関心の分離を実現します。
 
@@ -42,8 +59,11 @@
     - [DECISION_RULES.md](./DECISION_RULES.md)
     - [HANDOFF_RULES.md](./HANDOFF_RULES.md)
     - [GIT_RULES.md](./GIT_RULES.md)
+    - [TASK_RULES.md](./TASK_RULES.md)
+    - [REVIEW_RULES.md](./REVIEW_RULES.md)
   - `docs/product/`: 製品仕様・アーキテクチャ（Product SSOT）
 - `tasks/`: Task管理領域（PlannerからBuilderへのタスク投入・管理）
+  - [TASK_REGISTER.md](../../tasks/TASK_REGISTER.md)
   - `tasks/active/`: 進行中タスク
   - `tasks/completed/`: 完了済みタスク
 - `reports/`: 分析・調査結果の永続レポート配置領域
@@ -52,14 +72,15 @@
 ## Handoff Principle
 - BuilderからPlannerへの成果物受け渡しは、リポジトリルート直下の `受け渡し/` を唯一の標準配置場所とします。
 - **`受け渡し/` には常に現在Plannerへ渡すべき最新のHandoff ZIP（`<TASK-ID>_PLANNER_HANDOFF.zip`、上限500MB）1個のみを配置します。**
+- Handoff ZIPには対象タスク文書（`files/tasks/completed/<TASK-ID>.md` 等）を含めます。
 - Handoff ZIPはOS非依存のポータブルアーカイブとし、ZIP内部パスは常に POSIX 形式 `/` とします。標準スクリプトによる生成・自動検証を必須とします。
 - `受け渡し/` は配送物領域であり Git 追跡対象外とします。`git clone` 直後に存在しない場合は Builder が自動作成します。
 - 詳細は [HANDOFF_RULES.md](./HANDOFF_RULES.md) に定義します。
 
 ## Version Control Principle
 - 本リポジトリのすべての変更履歴および状態管理は GitHub (Git) を正式なバージョン管理・同期基盤として運用します。
-- 本開発標準リポジトリの Canonical Remote は `https://github.com/h-shojaku/PB-Dev.git` 、標準ブランチは `main` とします（Templateから派生した各製品リポジトリでは、派生先リポジトリのURLがRemoteとして設定されます）。
-- 通常タスクでは、検証完了後の `commit` および `push`（`origin main`）までBuilderが自律的に完了させ、その後に `受け渡し/` に最新 ZIP を作成・検証します。
+- 本開発標準リポジトリの Canonical Remote は `https://github.com/h-shojaku/PB-Dev.git` 、標準ブランチは `main` とします。
+- 通常タスクでは、Intake コミット (`<TASK-ID>: register task`) および実装完了コミット (`<TASK-ID>: <summary>`) を行い、プッシュ後に `受け渡し/` に最新 ZIP を作成・検証します。
 - 詳細は [GIT_RULES.md](./GIT_RULES.md) に定義します。
 
 ## Rule Precedence
@@ -74,6 +95,5 @@
 
 ## Future Standardization Areas
 以下の領域については本基盤設定以降の後続タスクにて段階的に詳細標準化を推進します。
-- Task Lifecycle および 命名・移動規則
 - AI / Session 切替手順・Session Handoff
 - Product SSOT / 各種テンプレートの標準フォーマット

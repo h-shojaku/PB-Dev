@@ -12,7 +12,7 @@ BuilderからPlannerへの成果物受け渡しは、リポジトリルート直
 
 ## 2. Latest One ZIP Rule (最新1 ZIP必須ルール)
 - Plannerへの提出物は、`受け渡し/` 直下に **常に現在Plannerへ渡すべき最新のHandoff ZIP 1個のみ** を配置します。
-- **標準命名規則**: `<TASK-ID>_PLANNER_HANDOFF.zip` （例: `DEV-TASK-0005_PLANNER_HANDOFF.zip`）
+- **標準命名規則**: `<TASK-ID>_PLANNER_HANDOFF.zip` （例: `DEV-TASK-0006_PLANNER_HANDOFF.zip`）
 - **禁止事項**:
   - `受け渡し/` 配下に過去タスクの旧ZIPを残すこと（複数ZIPの混在禁止）
   - `.gitkeep`, `.gitignore`, `README.md` 等のプレースホルダーファイルを置くこと
@@ -78,21 +78,26 @@ Handoff ZIP内部は、最低限以下の構造を持たなければなりませ
 ├── REPORT.md
 ├── MANIFEST.md
 └── files/
-    └── (Plannerがレビューするために必要な成果物)
+    ├── tasks/
+    │   ├── TASK_REGISTER.md
+    │   └── completed/ (または active/)
+    │       └── <TASK-ID>.md
+    └── (Plannerがレビューするために必要な変更成果物)
 ```
 
+- Plannerがタスク要求と成果物を直接対比レビューできるよう、**対象Task文書（`files/tasks/completed/<TASK-ID>.md` 等）および `files/tasks/TASK_REGISTER.md` をZIP内に含めることを必須**とします。
 - ZIP内部のファイルパスは、POSIX `/` 区切りのリポジトリ相対構造（`files/docs/development/...`）を維持します。
 - ZIP内部に `受け渡し/` ディレクトリ自体や過去の旧ZIPを含めてはなりません。
 
 ### 8.1 REPORT.md
 PlannerがZIP解凍直後に確認する主報告書です（標準テンプレート: `templates/PLANNER_REPORT_TEMPLATE.md` を使用）。
-`ZIP Portability Verification` セクションを含め、検証結果を記録します。
+`Task Lifecycle Self-Application` セクションおよび `ZIP Portability Verification` セクションを含め、検証結果を記録します。
 
 ### 8.2 MANIFEST.md
 ZIP内部に含まれるコンテンツのインデックス情報です（Task ID, 作成日時, リポジトリ絶対パス, POSIX `/` 形式の含有ファイル一覧等）。
 
 ### 8.3 files/ ディレクトリ
-Plannerがレビューするために必要な変更ファイル・文書をリポジトリ相対パス構造（POSIX `/` 形式）で格納します。
+対象 Task 文書および Planner がレビューするために必要な変更ファイル・文書をリポジトリ相対パス構造（POSIX `/` 形式）で格納します。
 
 ## 9. Output Rules in Final Response
 Builderがタスクを完遂した際の最終回答は、**最後の1文**で新しいHandoff ZIPの絶対パスを明示しなければなりません。

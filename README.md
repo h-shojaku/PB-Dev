@@ -14,6 +14,7 @@
 共通開発ルールおよび運用の最上位SSOTは以下に定義されています。
 
 - 📘 [Development System](docs/development/DEVELOPMENT_SYSTEM.md)
+- 📋 [Task Rules](docs/development/TASK_RULES.md) | [Review Rules](docs/development/REVIEW_RULES.md)
 
 ### バージョン管理・GitHub情報
 - **Canonical Repository**: [https://github.com/h-shojaku/PB-Dev](https://github.com/h-shojaku/PB-Dev)
@@ -22,4 +23,4 @@
 
 ### 成果物・タスク受渡場所
 - **Planner向け成果物受け渡し**: `受け渡し/` （常に最新のPlanner Handoff ZIP 1個のみ。詳細: [HANDOFF_RULES.md](docs/development/HANDOFF_RULES.md)）
-- **タスク管理**: [tasks/active/](tasks/active/) / [tasks/completed/](tasks/completed/)
+- **タスク管理**: [tasks/TASK_REGISTER.md](tasks/TASK_REGISTER.md) | [tasks/active/](tasks/active/) / [tasks/completed/](tasks/completed/)
