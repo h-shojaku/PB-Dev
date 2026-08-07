@@ -1,0 +1,8 @@
+# OS / Editor temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Handoff Delivery Artifacts (ZIP files are not tracked in Git)
+handoff/planner/*.zip
