@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0011 | ACTIVE | tasks/active/DEV-TASK-0011.md | 2026-08-08 | Initializer Fail-Closed化・実Git Integration Test・最終受入補正 |
 
 ## Task History
 
