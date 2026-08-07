@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0009 | ACTIVE | tasks/active/DEV-TASK-0009.md | 2026-08-08 | Definition of Done・Project初期化・Template Repository最終統合 |
 
 ## Task History
 

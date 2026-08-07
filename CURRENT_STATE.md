@@ -3,27 +3,28 @@
 当リポジトリにおける現在の開発運用状態を示すインデックス・スナップショット（Current State Index）です。
 
 ## Repository
+- Project Profile: [PROJECT_PROFILE.md](PROJECT_PROFILE.md)
 - Repository Name: `PB-Dev`
 - Canonical Remote: `https://github.com/h-shojaku/PB-Dev.git`
 - Current Branch: `main`
 
 ## Workflow Phase
-`AWAITING_PLANNER_REVIEW`
+`ACTIVE`
 
 ## Current Task
-- Task ID: `None` (現在実行中のActive Taskはありません)
+- Task ID: `DEV-TASK-0009`
+- Task Name: `Definition of Done・Project初期化・Template Repository最終統合`
+- Location: `tasks/active/DEV-TASK-0009.md`
 
 ## Latest Completed Task
 - Task ID: `DEV-TASK-0008`
 - Task Name: `AI / Session切替・状態復元・Continuity標準化`
 - Location: `tasks/completed/DEV-TASK-0008.md`
 
-## Current Branch / Commit
+## Git State
 - Branch: `main`
-- Status: `Clean`
-
-## Latest Planner Handoff
-- File: `受け渡し/DEV-TASK-0008_PLANNER_HANDOFF.zip`
+- Working Tree Status: `Clean`
+- HEAD Commit: Resolved dynamically via `git rev-parse HEAD`
 
 ## Human Decision Status
 - Status: `None` (人間判断待ち項目なし)
@@ -39,11 +40,8 @@
 - Task Register: [TASK_REGISTER.md](tasks/TASK_REGISTER.md)
 
 ## Recovery Entry Point
-- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/TASK_REGISTER.md`
-- Planner: `受け渡し/DEV-TASK-0008_PLANNER_HANDOFF.zip`
-
-## Next Expected Action
-Planner reviews latest Handoff (`受け渡し/DEV-TASK-0008_PLANNER_HANDOFF.zip`).
+- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/active/DEV-TASK-0009.md`
+- Planner: `受け渡し/DEV-TASK-0008_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
 
 ## Last Updated
-2026-08-07T20:23:00+09:00
+2026-08-08T08:22:00+09:00
