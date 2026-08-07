@@ -1,4 +1,4 @@
-# Project Initialization & Runtime State Reset Tool for AI Development System (PowerShell)
+# Project Initializer for AI Development System (PowerShell Implementation)
 
 [CmdletBinding()]
 param (
@@ -6,50 +6,104 @@ param (
     [string]$Name = "MyNewProduct",
     [string]$Prefix = "APP",
     [string]$Remote = "",
+    [switch]$AllowRemoteMismatch,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 
+# Validations
+if ($Mode -notin @("NEW_PRODUCT", "EXISTING_PRODUCT", "TEMPLATE")) {
+    Write-Error "Invalid mode '$Mode'. Must be NEW_PRODUCT, EXISTING_PRODUCT, or TEMPLATE."
+    exit 1
+}
+
+if ($Prefix -notmatch '^[A-Z0-9]{2,10}$') {
+    Write-Error "Invalid Task Prefix '$Prefix'. Must be 2-10 uppercase alphanumeric characters."
+    exit 1
+}
+
+if ($Name -notmatch '^[a-zA-Z0-9_\-]{2,50}$') {
+    Write-Error "Invalid Project Name '$Name'. Must be 2-50 alphanumeric, underscore, or hyphen characters."
+    exit 1
+}
+
+if ($Mode -ne "TEMPLATE") {
+    if ([string]::IsNullOrWhiteSpace($Remote)) {
+        Write-Error "--Remote is required for NEW_PRODUCT and EXISTING_PRODUCT modes."
+        exit 1
+    }
+
+    $invalidPatterns = @("example\.com", "github\.com/example/", "^TODO$", "^TBD$")
+    foreach ($pat in $invalidPatterns) {
+        if ($Remote -match $pat) {
+            Write-Error "Invalid placeholder remote URL detected: '$Remote'"
+            exit 1
+        }
+    }
+
+    if ($Remote -notmatch '^(https://|git@|ssh://)') {
+        Write-Error "Remote URL must be a valid Git URL (https:// or git@): '$Remote'"
+        exit 1
+    }
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath "..")).Path
-$profilePath = Join-Path -Path $repoRoot -ChildPath "PROJECT_PROFILE.md"
-$registerPath = Join-Path -Path $repoRoot -ChildPath "tasks\TASK_REGISTER.md"
-$statePath = Join-Path -Path $repoRoot -ChildPath "CURRENT_STATE.md"
-$activeDir = Join-Path -Path $repoRoot -ChildPath "tasks\active"
+
+# Remote Safety Check
+if ($Mode -ne "TEMPLATE" -and -not $AllowRemoteMismatch) {
+    try {
+        $gitRemote = (git remote -v 2>$null) | Out-String
+        if ($gitRemote -like "*https://github.com/h-shojaku/PB-Dev.git*" -and $Remote -notlike "*PB-Dev.git*") {
+            Write-Error "Safety Guard: git origin remote points to PB-Dev.git! Cannot initialize derived product repository while origin points to PB-Dev."
+            exit 1
+        }
+    } catch {}
+}
 
 $statusLabel = if ($DryRun) { "DRY-RUN" } else { "EXEC" }
 Write-Host ("[" + $statusLabel + "] Initializing Project: " + $Name + " (Mode: " + $Mode + ", Prefix: " + $Prefix + ")")
 
-$canonicalRemote = ""
-if ($Remote) {
-    $canonicalRemote = $Remote
-} else {
-    $canonicalRemote = "https://github.com/example/" + $Name + ".git"
-}
+$nowIso = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$profilePath = Join-Path -Path $repoRoot -ChildPath "PROJECT_PROFILE.md"
+$registerPath = Join-Path -Path $repoRoot -ChildPath "tasks\TASK_REGISTER.md"
+$statePath = Join-Path -Path $repoRoot -ChildPath "CURRENT_STATE.md"
+$activeDir = Join-Path -Path $repoRoot -ChildPath "tasks\active"
+$completedDir = Join-Path -Path $repoRoot -ChildPath "tasks\completed"
+
+# Dynamic UTF-8 decode for delivery directory name
+$handoffDirName = [System.Text.Encoding]::UTF8.GetString([byte[]](0xE5,0x8F,0x97,0xE3,0x81,0x91,0xE6,0xB8,0xA1,0xE3,0x81,0x97))
+$handoffDir = Join-Path -Path $repoRoot -ChildPath $handoffDirName
+
+$productDocsDir = Join-Path -Path $repoRoot -ChildPath "docs\product"
+$productTplDir = Join-Path -Path $repoRoot -ChildPath "templates\product"
+$reportsAnalysisDir = Join-Path -Path $repoRoot -ChildPath "reports\analysis"
+
+$bt = '`'
 
 $profileContent = @"
 # Project Profile
 
 ## Project Identity
-- Project Name: `$Name`
-- Project Mode: `$Mode`
-- Task Prefix: `$Prefix`
+- Project Name: $bt$Name$bt
+- Project Mode: $bt$Mode$bt
+- Task Prefix: $bt$Prefix$bt
 
 ## Repository
-- Canonical Remote: `$canonicalRemote`
-- Default Branch: `main`
+- Canonical Remote: $bt$Remote$bt
+- Default Branch: ${bt}main$bt
 
 ## Product
-- Product SSOT Root: `docs/product/`
+- Product SSOT Root: ${bt}docs/product/${bt}
 
 ## Development Standard
-- Source Template: `PB-Dev`
+- Source Template: ${bt}PB-Dev${bt}
 - Planner Role: Browser AI
 - Builder Role: VSCode + CLI AI
 
 ## Initialization
-- Initialized At: `2026-08-08T00:00:00+09:00`
-- Initialized By Task: `INIT`
+- Initialized At: $bt$nowIso$bt
+- Initialized By Task: ${bt}INIT${bt}
 "@
 
 $registerContent = @"
@@ -69,6 +123,8 @@ $registerContent = @"
 |---|---|---|---|---|---|
 "@
 
+$nextActionMsg = if ($Mode -eq "NEW_PRODUCT") { "Planner issues first product planning task ($bt$Prefix-TASK-0001$bt)." } else { "Planner issues first Baseline Analysis task ($bt$Prefix-TASK-0001$bt)." }
+
 $stateContent = @"
 # Current State
 
@@ -76,30 +132,30 @@ $stateContent = @"
 
 ## Repository
 - Project Profile: [PROJECT_PROFILE.md](PROJECT_PROFILE.md)
-- Project Name: `$Name`
-- Task Prefix: `$Prefix`
-- Canonical Remote: `$canonicalRemote`
-- Current Branch: `main`
+- Project Name: $bt$Name$bt
+- Task Prefix: $bt$Prefix$bt
+- Canonical Remote: $bt$Remote$bt
+- Default Branch: ${bt}main$bt
 
 ## Workflow Phase
-`IDLE`
+${bt}IDLE${bt}
 
 ## Current Task
-- Task ID: `None` (現在実行中のActive Taskはありません)
+- Task ID: ${bt}None${bt} (現在実行中のActive Taskはありません)
 
 ## Latest Completed Task
-- Task ID: `None`
+- Task ID: ${bt}None${bt}
 
 ## Git State
-- Branch: `main`
-- Working Tree Status: `Clean`
-- HEAD Commit: Resolved dynamically via `git rev-parse HEAD`
+- Branch: ${bt}main${bt}
+- Working Tree Status: ${bt}Clean${bt}
+- HEAD Commit: Resolved dynamically via ${bt}git rev-parse HEAD${bt}
 
 ## Human Decision Status
-- Status: `None`
+- Status: ${bt}None${bt}
 
 ## Known Blocking Issues
-- Blocking Issues: `None`
+- Blocking Issues: ${bt}None${bt}
 
 ## Relevant SSOT
 - Development System: [DEVELOPMENT_SYSTEM.md](docs/development/DEVELOPMENT_SYSTEM.md)
@@ -110,10 +166,10 @@ $stateContent = @"
 - Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/TASK_REGISTER.md`
 
 ## Next Expected Action
-Planner issues first product planning task (`$Prefix-TASK-0001`).
+$nextActionMsg
 
 ## Last Updated
-2026-08-08T00:00:00+09:00
+$nowIso
 "@
 
 if (-not $DryRun) {
@@ -123,6 +179,33 @@ if (-not $DryRun) {
 
     if (Test-Path -Path $activeDir) {
         Get-ChildItem -Path $activeDir -File | Remove-Item -Force
+    }
+
+    if ($Mode -in @("NEW_PRODUCT", "EXISTING_PRODUCT") -and (Test-Path -Path $completedDir)) {
+        Get-ChildItem -Path $completedDir -File | Remove-Item -Force
+    }
+
+    if (Test-Path -Path $handoffDir) {
+        Get-ChildItem -Path $handoffDir -Force | Remove-Item -Recurse -Force
+    }
+
+    if ($Mode -eq "NEW_PRODUCT") {
+        if (-not (Test-Path -Path $productDocsDir)) { New-Item -ItemType Directory -Path $productDocsDir -Force | Out-Null }
+        $tplFiles = @("00_PRODUCT_OVERVIEW.md", "01_PRODUCT_PLAN.md", "02_REQUIREMENTS.md", "03_UI_STRUCTURE.md", "04_IMPLEMENTATION_SPEC.md", "05_OPERATION_RULES.md")
+        foreach ($f in $tplFiles) {
+            $src = Join-Path -Path $productTplDir -ChildPath $f
+            if (Test-Path -Path $src) {
+                Copy-Item -Path $src -Destination (Join-Path -Path $productDocsDir -ChildPath $f) -Force
+            }
+        }
+    }
+
+    if ($Mode -eq "EXISTING_PRODUCT") {
+        if (-not (Test-Path -Path $reportsAnalysisDir)) { New-Item -ItemType Directory -Path $reportsAnalysisDir -Force | Out-Null }
+        $srcAnalysis = Join-Path -Path $productTplDir -ChildPath "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md"
+        if (Test-Path -Path $srcAnalysis) {
+            Copy-Item -Path $srcAnalysis -Destination (Join-Path -Path $reportsAnalysisDir -ChildPath "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md") -Force
+        }
     }
 }
 
