@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0008 | ACTIVE | tasks/active/DEV-TASK-0008.md | 2026-08-07 | AI / Session切替・状態復元・Continuity標準化 |
 
 ## Task History
 
