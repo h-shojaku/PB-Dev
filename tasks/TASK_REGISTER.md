@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| DEV-TASK-0007 | ACTIVE | tasks/active/DEV-TASK-0007.md | 2026-08-07 | Review Evidence Timing修正・Handoff世代境界の明確化 |
+| (なし) | - | - | - | 現在進行中のActive Taskはありません |
 
 ## Task History
 
@@ -18,3 +18,4 @@
 | DEV-TASK-0004 | COMPLETED | tasks/completed/DEV-TASK-0004.md | 2026-08-07 | 2026-08-07 | 受け渡しフォルダ簡素化・最新1 ZIP運用への移行 |
 | DEV-TASK-0005 | COMPLETED | tasks/completed/DEV-TASK-0005.md | 2026-08-07 | 2026-08-07 | Handoff ZIPクロスプラットフォーム化・生成検証標準化 |
 | DEV-TASK-0006 | COMPLETED | tasks/completed/DEV-TASK-0006.md | 2026-08-07 | 2026-08-07 | Task Lifecycle・Planner / Builder間運用標準化 |
+| DEV-TASK-0007 | COMPLETED | tasks/completed/DEV-TASK-0007.md | 2026-08-07 | 2026-08-07 | Review Evidence Timing修正・Handoff世代境界の明確化 |

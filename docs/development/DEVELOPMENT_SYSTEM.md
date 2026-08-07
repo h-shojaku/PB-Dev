@@ -38,8 +38,11 @@
 - **Task Intake Persistence**: タスク受領直後、`tasks/active/<TASK-ID>.md` への正式登録および `TASK_REGISTER.md` の更新内容を GitHub へコミット・プッシュして受付状態を永続化します。
 - 詳細は [TASK_RULES.md](./TASK_RULES.md) に定義します。
 
-## Planner Review Gate
+## Planner Review Gate & Evidence Rules
 - **Review Gate**: タスク完遂後、Builderが提出した Handoff ZIP を Planner がレビューします。
+- **Evidence 区分**:
+  - **Builder技術検証**: タスク最終コミットを対象とした自動テスト・ビルド・`git diff --check` 等は、Handoff ZIP 生成前に実施されていても正式エビデンスとして有効です。
+  - **人間・外部検証**: 人間による実機・目視確認等は Handoff 世代境界に紐付き、新 Handoff 生成時に過去の人間検証は自動継承されません（明示的指定がない限り再検証を要求）。
 - **3分類の判定結果**:
   1. `ACCEPTED`: 承認。タスク終了・次タスクへ。
   2. `CHANGES_REQUIRED`: 修正要求。過去タスクやGit履歴を上書きせず、修正用の新 Task ID（例: `DEV-TASK-0007`）を発行して対処します。
