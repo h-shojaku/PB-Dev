@@ -22,9 +22,12 @@
 - **役割**: リポジトリ構造を直接参照・操作し、コードの調査・実装・テスト検証・ドキュメント更新および成果物の提出（Handoff）を担当します。
 - **詳細ルール**: [BUILDER_RULES.md](./BUILDER_RULES.md)
 
-## AI Service Independence
-- 共通開発ルールは特定AI固有の指示ファイルに重複記載せず、本ドキュメントおよび `docs/development/` 以下を正（SSOT）とします。
-- リポジトリ直下のAI固有ファイル（`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` 等）は、本共通SSOTへアクセスするための「薄いAdapter」として配置・運用します。
+## AI Service Independence & Continuity Principle
+- AIサービスやセッションの切替・CLI再起動・PC変更は正常な運用イベントとして扱います。
+- チャット履歴や AI 内部記憶（chain-of-thought等）には一切依存せず、リポジトリ上の設定およびドキュメントのみから開発状態を完全復元します。
+- リポジトリルートの [CURRENT_STATE.md](../../CURRENT_STATE.md) を開発状態のインデックス（Current State Index）として運用します。
+- 共通開発ルールは特定AI固有の指示ファイルに重複記載せず、本ドキュメントおよび `docs/development/` 以下を正（SSOT）とします。AI固有ファイル（`AGENTS.md` 等）は薄い Adapter として運用します。
+- 詳細は [SESSION_RULES.md](./SESSION_RULES.md) に定義します。
 
 ## Autonomous Execution Principle
 - Builderは、人間の明示的な判断を必要としない作業（調査、実装、テスト実行、ドキュメント更新、検証等の定義されたプロセス）について、途中確認で停止せず自律的に実行・完結します。
@@ -35,7 +38,7 @@
 - **One Active Task**: 原則として同時に着手するActive Taskは `tasks/active/` に配置される 1 件のみとします。
 - **Task Instruction Immutability**: Plannerから発行されたTask文書は指示レコードであり不可変です。Builderが要件や受入条件を書き換えてはなりません。
 - **Task Register**: `tasks/TASK_REGISTER.md` にて全タスクの現在状態（ACTIVE / BLOCKED / COMPLETED）および過去履歴を一元管理します。
-- **Task Intake Persistence**: タスク受領直後、`tasks/active/<TASK-ID>.md` への正式登録および `TASK_REGISTER.md` の更新内容を GitHub へコミット・プッシュして受付状態を永続化します。
+- **Task Intake Persistence**: タスク受領直後、`tasks/active/<TASK-ID>.md` への正式登録、`TASK_REGISTER.md` および `CURRENT_STATE.md` の更新内容を GitHub へコミット・プッシュして受付状態を永続化します。
 - 詳細は [TASK_RULES.md](./TASK_RULES.md) に定義します。
 
 ## Planner Review Gate & Evidence Rules
@@ -53,7 +56,7 @@
 ## Repository Areas
 本リポジトリは以下の標準構造により関心の分離を実現します。
 
-- `/`: リポジトリルート（概要ドキュメントおよびAI Adapterファイル）
+- `/`: リポジトリルート（概要ドキュメント、`CURRENT_STATE.md` および AI Adapter）
 - `受け渡し/`: BuilderからPlannerへの成果物受け渡し領域（Git追跡対象外）
 - `docs/`: 正式ドキュメント領域（SSOT）
   - `docs/development/`: 開発標準・運用ルール（Development SSOT）
@@ -64,18 +67,19 @@
     - [GIT_RULES.md](./GIT_RULES.md)
     - [TASK_RULES.md](./TASK_RULES.md)
     - [REVIEW_RULES.md](./REVIEW_RULES.md)
+    - [SESSION_RULES.md](./SESSION_RULES.md)
   - `docs/product/`: 製品仕様・アーキテクチャ（Product SSOT）
 - `tasks/`: Task管理領域（PlannerからBuilderへのタスク投入・管理）
   - [TASK_REGISTER.md](../../tasks/TASK_REGISTER.md)
   - `tasks/active/`: 進行中タスク
   - `tasks/completed/`: 完了済みタスク
 - `reports/`: 分析・調査結果の永続レポート配置領域
-- `templates/`: 標準テンプレート配置領域（Task, Handoff等）
+- `templates/`: 標準テンプレート配置領域（Task, Session Handoff等）
 
 ## Handoff Principle
 - BuilderからPlannerへの成果物受け渡しは、リポジトリルート直下の `受け渡し/` を唯一の標準配置場所とします。
 - **`受け渡し/` には常に現在Plannerへ渡すべき最新のHandoff ZIP（`<TASK-ID>_PLANNER_HANDOFF.zip`、上限500MB）1個のみを配置します。**
-- Handoff ZIPには対象タスク文書（`files/tasks/completed/<TASK-ID>.md` 等）を含めます。
+- Handoff ZIPには Planner Continuity Package として `files/CURRENT_STATE.md`、`files/tasks/TASK_REGISTER.md`、および対象タスク文書（`files/tasks/completed/<TASK-ID>.md` 等）を必須で含めます。
 - Handoff ZIPはOS非依存のポータブルアーカイブとし、ZIP内部パスは常に POSIX 形式 `/` とします。標準スクリプトによる生成・自動検証を必須とします。
 - `受け渡し/` は配送物領域であり Git 追跡対象外とします。`git clone` 直後に存在しない場合は Builder が自動作成します。
 - 詳細は [HANDOFF_RULES.md](./HANDOFF_RULES.md) に定義します。
@@ -98,5 +102,4 @@
 
 ## Future Standardization Areas
 以下の領域については本基盤設定以降の後続タスクにて段階的に詳細標準化を推進します。
-- AI / Session 切替手順・Session Handoff
 - Product SSOT / 各種テンプレートの標準フォーマット

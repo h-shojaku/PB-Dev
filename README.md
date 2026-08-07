@@ -8,13 +8,15 @@
 
 - **Planner**: ブラウザ版AI（計画策定、仕様判断、Task作成、レビュー）
 - **Builder**: VSCode + CLI型AI（リポジトリ直接操作、実装、テスト、報告）
-- **AI Agnostic**: 使用するAIサービス（ChatGPT / Claude / Gemini 等）は自由に変更可能
+- **AI Agnostic & Continuity**: 使用するAIサービス（ChatGPT / Claude / Gemini 等）の切り替えやセッション再起動時も、リポジトリから開発状態を完全復元可能
 
-### 共通ルールの入口
-共通開発ルールおよび運用の最上位SSOTは以下に定義されています。
+### 状況把握とルールの入口
+初めてリポジトリを開いた人間および AI は、以下の順序で開発状況を把握できます。
 
-- 📘 [Development System](docs/development/DEVELOPMENT_SYSTEM.md)
-- 📋 [Task Rules](docs/development/TASK_RULES.md) | [Review Rules](docs/development/REVIEW_RULES.md)
+1. 📍 [CURRENT_STATE.md](CURRENT_STATE.md) (現在の開発状態インデックス)
+2. 📘 [Development System](docs/development/DEVELOPMENT_SYSTEM.md) (最上位SSOT)
+3. 📋 [Task Register](tasks/TASK_REGISTER.md) (全タスク履歴)
+4. ⚙️ [Session Rules](docs/development/SESSION_RULES.md) (セッション切替・復元ルール)
 
 ### バージョン管理・GitHub情報
 - **Canonical Repository**: [https://github.com/h-shojaku/PB-Dev](https://github.com/h-shojaku/PB-Dev)
