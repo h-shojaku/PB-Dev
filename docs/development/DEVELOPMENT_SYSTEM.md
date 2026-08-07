@@ -34,8 +34,7 @@
 本リポジトリは以下の標準構造により関心の分離を実現します。
 
 - `/`: リポジトリルート（概要ドキュメントおよびAI Adapterファイル）
-- `handoff/`: BuilderからPlannerへの成果物受け渡し領域
-  - `handoff/planner/`: Planner向け成果物（Handoff ZIP）の配置場所
+- `受け渡し/`: BuilderからPlannerへの成果物受け渡し領域（Git追跡対象外）
 - `docs/`: 正式ドキュメント領域（SSOT）
   - `docs/development/`: 開発標準・運用ルール（Development SSOT）
     - [DEVELOPMENT_SYSTEM.md](./DEVELOPMENT_SYSTEM.md)
@@ -51,14 +50,16 @@
 - `templates/`: 標準テンプレート配置領域（Task, Handoff等）
 
 ## Handoff Principle
-- BuilderからPlannerへの成果物受け渡しは、`handoff/planner/` 配下を標準配置場所とします。
-- **Plannerへの1回の提出につき1 ZIP（例: `handoff/planner/<TASK-ID>_PLANNER_HANDOFF.zip`、上限500MB）の作成を必須とします。** loose fileの提出は禁止します。
+- BuilderからPlannerへの成果物受け渡しは、リポジトリルート直下の `受け渡し/` を唯一の標準配置場所とします（旧 `handoff/planner/` は全廃）。
+- **`受け渡し/` には常に現在Plannerへ渡すべき最新のHandoff ZIP（`<TASK-ID>_PLANNER_HANDOFF.zip`、上限500MB）1個のみを配置します。**
+- 過去の旧ZIP、`.gitkeep` 等のプレースホルダーファイル、loose file、サブディレクトリの配置は禁止します。
+- `受け渡し/` は配送物領域であり Git 追跡対象外とします。`git clone` 直後に存在しない場合は Builder が自動作成します。
 - 詳細は [HANDOFF_RULES.md](./HANDOFF_RULES.md) に定義します。
 
 ## Version Control Principle
 - 本リポジトリのすべての変更履歴および状態管理は GitHub (Git) を正式なバージョン管理・同期基盤として運用します。
 - 本開発標準リポジトリの Canonical Remote は `https://github.com/h-shojaku/PB-Dev.git` 、標準ブランチは `main` とします（Templateから派生した各製品リポジトリでは、派生先リポジトリのURLがRemoteとして設定されます）。
-- 通常タスクでは、検証完了後の `commit` および `push`（`origin main`）までBuilderが自律的に完了させます。
+- 通常タスクでは、検証完了後の `commit` および `push`（`origin main`）までBuilderが自律的に完了させ、その後に `受け渡し/` に最新 ZIP を作成します。
 - 詳細は [GIT_RULES.md](./GIT_RULES.md) に定義します。
 
 ## Rule Precedence

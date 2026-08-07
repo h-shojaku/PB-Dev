@@ -21,5 +21,5 @@
 - **Git運用ルール**: [Git / GitHub Rules](docs/development/GIT_RULES.md)
 
 ### 成果物・タスク受渡場所
-- **Planner向け成果物受け渡し**: [handoff/planner/](handoff/planner/)
+- **Planner向け成果物受け渡し**: `受け渡し/` （常に最新のPlanner Handoff ZIP 1個のみ。詳細: [HANDOFF_RULES.md](docs/development/HANDOFF_RULES.md)）
 - **タスク管理**: [tasks/active/](tasks/active/) / [tasks/completed/](tasks/completed/)

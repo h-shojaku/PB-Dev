@@ -32,7 +32,13 @@ git push origin main
   ↓
 working tree clean 確認
   ↓
-Handoff ZIP 生成
+`受け渡し/` ディレクトリ準備
+  ↓
+旧配送物 (ZIP) を削除
+  ↓
+最新 Handoff ZIP 生成
+  ↓
+`受け渡し/` 内が最新 ZIP 1個のみであることを検証
 ```
 
 - Handoff ZIPは原則として `commit` および `push` 完了後に生成し、`REPORT.md` および `MANIFEST.md` に確定した Git Commit ID および Branch 情報を記録します。
@@ -41,7 +47,7 @@ Handoff ZIP 生成
 各コミットは、対応するタスクとの相互追跡を可能にするためコミットメッセージに Task ID を含めます。
 
 - **標準メッセージフォーマット**: `<TASK-ID>: <summary>`
-- **例**: `DEV-TASK-0003: establish GitHub workflow`
+- **例**: `DEV-TASK-0004: simplify Planner handoff`
 
 1タスク内で合理的な理由（機能単位の分離等）により複数コミットに分割することは認められますが、すべてタスクIDが含まれる必要があります。
 
@@ -60,5 +66,5 @@ Handoff ZIP 生成
 - `user.name` や `user.email` が未設定でコミットできない場合、架空の設定を作成せず、人間判断対象（BLOCK）として報告します。
 
 ## 8. Git Tracking Exceptions (.gitignore)
-- 配送物である Handoff ZIP (`handoff/planner/*.zip`) は Git 追跡対象外とします。
-- ディレクトリ自体の構造を維持するため `handoff/planner/.gitkeep` を保持します。
+- 配送物領域である `受け渡し/` 配下は Git 追跡対象外とします（`.gitignore` に `/受け渡し/` を設定）。
+- `受け渡し/` 内には `.gitkeep` 等を保持させないため、Git追跡対象のフォルダ構造としては管理されません。

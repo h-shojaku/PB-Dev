@@ -4,5 +4,5 @@ Thumbs.db
 *.tmp
 *.log
 
-# Handoff Delivery Artifacts (ZIP files are not tracked in Git)
-handoff/planner/*.zip
+# Handoff Delivery Area (Delivery artifacts are not tracked in Git)
+/受け渡し/
