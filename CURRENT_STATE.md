@@ -10,10 +10,12 @@
 - Current Branch: `main`
 
 ## Workflow Phase
-`AWAITING_PLANNER_REVIEW`
+`ACTIVE`
 
 ## Current Task
-- Task ID: `None` (現在実行中のActive Taskはありません)
+- Task ID: `DEV-TASK-0013`
+- Task Name: `実Template Clone初期化・PowerShell完全Thin Wrapper・最終受入`
+- Location: `tasks/active/DEV-TASK-0013.md`
 
 ## Latest Completed Task
 - Task ID: `DEV-TASK-0012`
@@ -25,9 +27,6 @@
 - Working Tree Status: `Clean`
 - HEAD Commit: Resolved dynamically via `git rev-parse HEAD`
 
-## Latest Planner Handoff
-- File: `受け渡し/DEV-TASK-0012_PLANNER_HANDOFF.zip`
-
 ## Human Decision Status
 - Status: `None` (人間判断待ち項目なし)
 
@@ -36,17 +35,13 @@
 
 ## Relevant SSOT
 - Development System: [DEVELOPMENT_SYSTEM.md](docs/development/DEVELOPMENT_SYSTEM.md)
-- Project Profile: [PROJECT_PROFILE.md](PROJECT_PROFILE.md)
 - Project Initialization Rules: [PROJECT_INITIALIZATION_RULES.md](docs/development/PROJECT_INITIALIZATION_RULES.md)
 - Definition of Done: [DEFINITION_OF_DONE.md](docs/development/DEFINITION_OF_DONE.md)
 - Task Register: [TASK_REGISTER.md](tasks/TASK_REGISTER.md)
 
 ## Recovery Entry Point
-- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/TASK_REGISTER.md`
-- Planner: `受け渡し/DEV-TASK-0012_PLANNER_HANDOFF.zip`
-
-## Next Expected Action
-Planner reviews latest Handoff (`受け渡し/DEV-TASK-0012_PLANNER_HANDOFF.zip`).
+- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/active/DEV-TASK-0013.md`
+- Planner: `受け渡し/DEV-TASK-0012_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
 
 ## Last Updated
-2026-08-08T09:16:00+09:00
+2026-08-08T09:38:00+09:00
