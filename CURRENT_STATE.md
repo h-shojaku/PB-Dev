@@ -10,10 +10,12 @@
 - Current Branch: `main`
 
 ## Workflow Phase
-`AWAITING_PLANNER_REVIEW`
+`ACTIVE`
 
 ## Current Task
-- Task ID: `None` (現在実行中のActive Taskはありません)
+- Task ID: `DEV-TASK-0014`
+- Task Name: `Handoff完全性保証・Manifest整合・DEV-TASK-0013最終再提出`
+- Location: `tasks/active/DEV-TASK-0014.md`
 
 ## Latest Completed Task
 - Task ID: `DEV-TASK-0013`
@@ -34,12 +36,13 @@
 ## Relevant SSOT
 - Development System: [DEVELOPMENT_SYSTEM.md](docs/development/DEVELOPMENT_SYSTEM.md)
 - Project Initialization Rules: [PROJECT_INITIALIZATION_RULES.md](docs/development/PROJECT_INITIALIZATION_RULES.md)
+- Handoff Rules: [HANDOFF_RULES.md](docs/development/HANDOFF_RULES.md)
 - Definition of Done: [DEFINITION_OF_DONE.md](docs/development/DEFINITION_OF_DONE.md)
 - Task Register: [TASK_REGISTER.md](tasks/TASK_REGISTER.md)
 
 ## Recovery Entry Point
-- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/completed/DEV-TASK-0013.md`
+- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/active/DEV-TASK-0014.md`
 - Planner: `受け渡し/DEV-TASK-0013_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
 
 ## Last Updated
-2026-08-08T10:02:00+09:00
+2026-08-08T10:21:50+09:00

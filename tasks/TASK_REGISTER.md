@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0014 | ACTIVE | tasks/active/DEV-TASK-0014.md | 2026-08-08 | Handoff完全性保証・Manifest整合・DEV-TASK-0013最終再提出 |
 
 ## Task History
 
