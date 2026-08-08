@@ -10,17 +10,15 @@
 - Current Branch: `main`
 
 ## Workflow Phase
-`ACTIVE`
+`AWAITING_PLANNER_REVIEW`
 
 ## Current Task
-- Task ID: `DEV-TASK-0014`
-- Task Name: `Handoff完全性保証・Manifest整合・DEV-TASK-0013最終再提出`
-- Location: `tasks/active/DEV-TASK-0014.md`
+- Task ID: `None` (現在実行中のActive Taskはありません)
 
 ## Latest Completed Task
-- Task ID: `DEV-TASK-0013`
-- Task Name: `実Template Clone初期化・PowerShell完全Thin Wrapper・最終受入`
-- Location: `tasks/completed/DEV-TASK-0013.md`
+- Task ID: `DEV-TASK-0014`
+- Task Name: `Handoff完全性保証・Manifest整合・DEV-TASK-0013最終再提出`
+- Location: `tasks/completed/DEV-TASK-0014.md`
 
 ## Git State
 - Branch: `main`
@@ -41,8 +39,8 @@
 - Task Register: [TASK_REGISTER.md](tasks/TASK_REGISTER.md)
 
 ## Recovery Entry Point
-- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/active/DEV-TASK-0014.md`
-- Planner: `受け渡し/DEV-TASK-0013_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
+- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/completed/DEV-TASK-0014.md`
+- Planner: `受け渡し/DEV-TASK-0014_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
 
 ## Last Updated
-2026-08-08T10:21:50+09:00
+2026-08-08T10:49:00+09:00

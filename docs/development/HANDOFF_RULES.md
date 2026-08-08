@@ -32,12 +32,15 @@ Handoff ZIPはWindows / macOS / Linux等、展開するOS環境に依存せず�
   1. ZIPファイルが存在し、500 MB 以内であること
   2. アーカイブの整合性（CRC・ヘッダー）に異常がないこと
   3. ルートに `REPORT.md` および `MANIFEST.md` が存在すること
-  4. `files/CURRENT_STATE.md` および `files/tasks/TASK_REGISTER.md` が存在すること
-  5. ZIPエントリ名に `\` が0件であること
-  6. ZIPエントリ名に絶対パス、ドライブ文字、`..` が0件であること
-  7. `.git` ディレクトリが含まれていないこと
-  8. 実際に一時ディレクトリへ展開し、正常に解凍できること（Extraction Test PASS）
-  9. `受け渡し/` 内が最新ZIP 1個のみ（通常ファイル数=1, ZIP数=1, サブディレクトリ数=0）であること
+  4. `files/` 配下にレビュー用変更成果物・SSOT（`CURRENT_STATE.md`, `TASK_REGISTER.md` 等）が存在すること
+  5. Manifest 記載エントリーと実 ZIP エントリーが 100% 一致すること（Phantom Entry 0件）
+  6. タスクで指定された Required Review Files が漏れなく含まれていること
+  7. 空パッケージ（`files/` が空または `REPORT.md` / `MANIFEST.md` のみ）でないこと
+  8. ZIPエントリ名に `\` が0件であること
+  9. ZIPエントリ名に絶対パス、ドライブ文字、`..` が0件であること
+  10. `.git` ディレクトリが含まれていないこと
+  11. 実際に一時ディレクトリへ展開し、正常に解凍できること（Extraction Test PASS）
+  12. `受け渡し/` 内が最新ZIP 1個のみ（通常ファイル数=1, ZIP数=1, サブディレクトリ数=0）であること
 
 ## 5. Cleanup Flow Before Handoff Generation
 Builderが新しいHandoff ZIPを生成する際は、事前に以下のクリーンアップ・生成手順を自律的に実行します。
@@ -104,7 +107,22 @@ ZIP内部に含まれるコンテンツのインデックス情報です（Task 
 ### 8.3 files/ ディレクトリ
 対象 Task 文書および Planner がレビュー・状態復元するために必要な変更ファイル・文書をリポジトリ相対パス構造（POSIX `/` 形式）で格納します。
 
-## 9. Output Rules in Final Response
+## 9. Handoff Completeness & Manifest Integrity Rules (完全性・整合性規定)
+
+### 9.1 Empty Review Package Rejection (空パッケージ拒絶)
+- Handoff ZIP 内に `REPORT.md` と `MANIFEST.md` のみが存在し、`files/` ディレクトリにレビュー用ファイルが存在しない状態は**重大な不具合（Empty Review Package Failure）**とし、Generator は生成・検証を FAIL させます。
+
+### 9.2 Manifest Integrity Verification (マニフェスト整合性検証)
+- `MANIFEST.md` の Included Files に記載されているすべてのファイルパスは、作成された実 ZIP アーカイブ内に **100% 存在（Phantom Entry 0件）**しなければなりません。
+- MANIFEST 記載パスが実 ZIP 内に存在しない場合、Manifest Integrity Failure として FAIL させます。
+
+### 9.3 Required Review Files Enforcement (必須レビューファイル検証)
+- Generator は `--require` 引数で指定された必須レビューファイルが実 ZIP アーカイブ内に存在することを自動検証します。欠落している場合は即座に FAIL させます。
+
+### 9.4 Entry Count Evidence Accuracy (エントリー数実測規定)
+- `REPORT.md` や `MANIFEST.md` に記載する ZIP エントリー数は、圧縮完了後の `zipfile.namelist()` / アーカイブ実測値を元に記録します。事前推測値を記載してはなりません。
+
+## 10. Output Rules in Final Response
 Builderがタスクを完遂した際の最終回答は、**最後の1文**で新しいHandoff ZIPの絶対パスを明示しなければなりません。
 
 ```text
