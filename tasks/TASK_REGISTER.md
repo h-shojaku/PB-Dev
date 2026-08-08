@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0012 | ACTIVE | tasks/active/DEV-TASK-0012.md | 2026-08-08 | Initializer安全バイパス撤去・Runtime Reset完全化・最終受入 |
 
 ## Task History
 
