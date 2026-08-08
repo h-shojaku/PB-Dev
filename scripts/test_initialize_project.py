@@ -56,7 +56,7 @@ class TestProjectInitializerRealGit(unittest.TestCase):
 
     def test_real_git_new_product_initialization(self):
         remote = "https://github.com/myorg/RealApp.git"
-        res = initialize_project(self.test_dir, "NEW_PRODUCT", "RealApp", "APP", remote, force=False, dry_run=False)
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "RealApp", "APP", remote, dry_run=False)
         self.assertTrue(res)
 
         # Assert actual git origin remote was updated and matches requested remote
@@ -86,7 +86,7 @@ class TestProjectInitializerRealGit(unittest.TestCase):
             f.write("print('Existing Code')")
 
         remote = "https://github.com/myorg/LegacyApp.git"
-        res = initialize_project(self.test_dir, "EXISTING_PRODUCT", "LegacyApp", "LEG", remote, force=False, dry_run=False)
+        res = initialize_project(self.test_dir, "EXISTING_PRODUCT", "LegacyApp", "LEG", remote, dry_run=False)
         self.assertTrue(res)
 
         # Assert existing code remains intact
@@ -102,8 +102,7 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         analysis_file = os.path.join(self.test_dir, "reports", "analysis", "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")
         self.assertTrue(os.path.exists(analysis_file))
 
-    def test_negative_cases_fail_closed(self):
-        # 1. Non-git directory -> FAIL
+    def test_fail_non_git_repository(self):
         non_git_dir = tempfile.mkdtemp(prefix="non_git_")
         try:
             os.makedirs(os.path.join(non_git_dir, "templates", "product"), exist_ok=True)
@@ -111,18 +110,20 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         finally:
             shutil.rmtree(non_git_dir)
 
-        # 2. Missing remote -> FAIL
+    def test_fail_missing_remote(self):
         self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", ""))
 
-        # 3. Placeholder remote -> FAIL
+    def test_fail_placeholder_remote(self):
         self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/example/App.git"))
         self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "TODO"))
 
-        # 4. Invalid Prefix / Name -> FAIL
+    def test_fail_invalid_prefix(self):
         self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "invalid-prefix", "https://github.com/org/App.git"))
+
+    def test_fail_invalid_name(self):
         self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "Bad Name!", "APP", "https://github.com/org/App.git"))
 
-        # 5. Missing Product SSOT template -> FAIL
+    def test_fail_missing_product_ssot_template(self):
         missing_tpl_repo = tempfile.mkdtemp(prefix="missing_tpl_")
         try:
             subprocess.check_call(["git", "init"], cwd=missing_tpl_repo, stderr=subprocess.DEVNULL)
@@ -133,13 +134,43 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         finally:
             shutil.rmtree(missing_tpl_repo)
 
-        # 6. Existing Product SSOT Protection -> FAIL (unless --force)
+    def test_fail_missing_analysis_template(self):
+        missing_analysis_repo = tempfile.mkdtemp(prefix="missing_analysis_")
+        try:
+            subprocess.check_call(["git", "init"], cwd=missing_analysis_repo, stderr=subprocess.DEVNULL)
+            os.makedirs(os.path.join(missing_analysis_repo, "templates", "product"), exist_ok=True)
+            # Do NOT copy EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md
+            self.assertFalse(initialize_project(missing_analysis_repo, "EXISTING_PRODUCT", "App", "APP", "https://github.com/org/App.git"))
+        finally:
+            shutil.rmtree(missing_analysis_repo)
+
+    def test_fail_existing_product_ssot_protection(self):
         docs_p = os.path.join(self.test_dir, "docs", "product")
         os.makedirs(docs_p, exist_ok=True)
         with open(os.path.join(docs_p, "00_PRODUCT_OVERVIEW.md"), "w") as f:
             f.write("Important Custom Spec")
-        self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/org/App.git", force=False))
-        self.assertTrue(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/org/App.git", force=True))
+        self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/org/App.git"))
+
+    def test_recursive_runtime_reset(self):
+        # Create nested runtime directories and files
+        nested_active = os.path.join(self.test_dir, "tasks", "active", "nested", "deep")
+        nested_completed = os.path.join(self.test_dir, "tasks", "completed", "sub")
+        nested_handoff = os.path.join(self.test_dir, "受け渡し", "sub_dir")
+        os.makedirs(nested_active, exist_ok=True)
+        os.makedirs(nested_completed, exist_ok=True)
+        os.makedirs(nested_handoff, exist_ok=True)
+        with open(os.path.join(nested_active, "x.md"), "w") as f: f.write("active")
+        with open(os.path.join(nested_completed, "y.md"), "w") as f: f.write("completed")
+        with open(os.path.join(nested_handoff, "z.zip"), "w") as f: f.write("zip")
+
+        remote = "https://github.com/myorg/RecResetApp.git"
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "RecResetApp", "REC", remote)
+        self.assertTrue(res)
+
+        # Assert recursively empty
+        self.assertEqual(len(os.listdir(os.path.join(self.test_dir, "tasks", "active"))), 0)
+        self.assertEqual(len(os.listdir(os.path.join(self.test_dir, "tasks", "completed"))), 0)
+        self.assertEqual(len(os.listdir(os.path.join(self.test_dir, "受け渡し"))), 0)
 
     def test_dry_run_no_mutation(self):
         remote = "https://github.com/myorg/DryRun.git"

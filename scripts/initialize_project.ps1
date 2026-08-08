@@ -1,4 +1,4 @@
-# Project Initializer for AI Development System (PowerShell Implementation)
+# Project Initializer for AI Development System (PowerShell Thin Wrapper & Native Fallback)
 
 [CmdletBinding()]
 param (
@@ -6,13 +6,37 @@ param (
     [string]$Name = "MyNewProduct",
     [string]$Prefix = "APP",
     [string]$Remote = "",
-    [switch]$Force,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 
-# Validations
+$scriptDir = $PSScriptRoot
+$pyScript = Join-Path -Path $scriptDir -ChildPath "initialize_project.py"
+
+# Try invoking canonical Python implementation first
+$pythonExe = Get-Command "python" -ErrorAction SilentlyContinue
+if (-not $pythonExe) { $pythonExe = Get-Command "python3" -ErrorAction SilentlyContinue }
+if (-not $pythonExe) { $pythonExe = Get-Command "py" -ErrorAction SilentlyContinue }
+
+$pySuccess = $false
+if ($pythonExe) {
+    try {
+        $pyArgs = @($pyScript, "--mode", $Mode, "--name", $Name, "--prefix", $Prefix)
+        if ($Remote) { $pyArgs += @("--remote", $Remote) }
+        if ($DryRun) { $pyArgs += "--dry-run" }
+
+        & $pythonExe.Source $pyArgs 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $pySuccess = $true
+            exit 0
+        }
+    } catch {
+        $pySuccess = $false
+    }
+}
+
+# If Python is not installed / app stub (exit 9009), execute native PowerShell logic
 if ($Mode -notin @("NEW_PRODUCT", "EXISTING_PRODUCT", "TEMPLATE")) {
     Write-Error "Invalid mode '$Mode'. Must be NEW_PRODUCT, EXISTING_PRODUCT, or TEMPLATE."
     exit 1
@@ -48,7 +72,7 @@ if ($Mode -ne "TEMPLATE") {
     }
 }
 
-$repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath "..")).Path
+$repoRoot = (Resolve-Path -Path (Join-Path -Path $scriptDir -ChildPath "..")).Path
 
 # 1. Git Repository Check
 try {
@@ -62,7 +86,7 @@ try {
     exit 1
 }
 
-# 2. Template and Existing SSOT Preflight Check
+# 2. Preflight Template Checks and Existing Product SSOT Protection
 $productTplDir = Join-Path -Path $repoRoot -ChildPath "templates\product"
 $productDocsDir = Join-Path -Path $repoRoot -ChildPath "docs\product"
 $requiredTpls = @("00_PRODUCT_OVERVIEW.md", "01_PRODUCT_PLAN.md", "02_REQUIREMENTS.md", "03_UI_STRUCTURE.md", "04_IMPLEMENTATION_SPEC.md", "05_OPERATION_RULES.md")
@@ -75,14 +99,22 @@ if ($Mode -eq "NEW_PRODUCT") {
         }
     }
 
-    if ((Test-Path -Path $productDocsDir) -and -not $Force) {
+    if (Test-Path -Path $productDocsDir) {
         $existingFiles = Get-ChildItem -Path $productDocsDir -File -Filter "*.md" -ErrorAction SilentlyContinue
         foreach ($ef in $existingFiles) {
             if ($ef.Length -gt 0) {
-                Write-Error "Existing Product SSOT detected in docs/product/'$($ef.Name)'. Use -Force to overwrite."
+                Write-Error "Existing Product SSOT detected in docs/product/'$($ef.Name)'. Clean existing docs/product/ before initializing."
                 exit 1
             }
         }
+    }
+}
+
+if ($Mode -eq "EXISTING_PRODUCT") {
+    $analysisTpl = Join-Path -Path $productTplDir -ChildPath "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md"
+    if (-not (Test-Path -Path $analysisTpl)) {
+        Write-Error "Missing Product Template: 'EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md' in templates/product/"
+        exit 1
     }
 }
 
@@ -96,7 +128,6 @@ $statePath = Join-Path -Path $repoRoot -ChildPath "CURRENT_STATE.md"
 $activeDir = Join-Path -Path $repoRoot -ChildPath "tasks\active"
 $completedDir = Join-Path -Path $repoRoot -ChildPath "tasks\completed"
 
-# Dynamic UTF-8 decode for delivery directory name
 $handoffDirName = [System.Text.Encoding]::UTF8.GetString([byte[]](0xE5,0x8F,0x97,0xE3,0x81,0x91,0xE6,0xB8,0xA1,0xE3,0x81,0x97))
 $handoffDir = Join-Path -Path $repoRoot -ChildPath $handoffDirName
 
@@ -215,16 +246,17 @@ if (-not $DryRun) {
     Set-Content -Path $registerPath -Value $registerContent -Encoding UTF8
     Set-Content -Path $statePath -Value $stateContent -Encoding UTF8
 
+    # Recursive Runtime State Reset
     if (Test-Path -Path $activeDir) {
-        Get-ChildItem -Path $activeDir -File | Remove-Item -Force
+        Get-ChildItem -Path $activeDir -Recurse | Remove-Item -Recurse -Force
     }
 
     if ($Mode -in @("NEW_PRODUCT", "EXISTING_PRODUCT") -and (Test-Path -Path $completedDir)) {
-        Get-ChildItem -Path $completedDir -File | Remove-Item -Force
+        Get-ChildItem -Path $completedDir -Recurse | Remove-Item -Recurse -Force
     }
 
     if (Test-Path -Path $handoffDir) {
-        Get-ChildItem -Path $handoffDir -Force | Remove-Item -Recurse -Force
+        Get-ChildItem -Path $handoffDir -Recurse | Remove-Item -Recurse -Force
     }
 
     if ($Mode -eq "NEW_PRODUCT") {
@@ -251,10 +283,46 @@ if (-not $DryRun) {
         exit 1
     }
 
+    if ($Mode -ne "TEMPLATE") {
+        $actualOrigin = (git -C $repoRoot remote get-url origin 2>$null).Trim()
+        if ($actualOrigin -ne $Remote) {
+            Write-Error "Final Post-Condition Failed: actual origin '$actualOrigin' != requested '$Remote'."
+            exit 1
+        }
+    }
+
+    $activeItems = (Get-ChildItem -Path $activeDir -Recurse -ErrorAction SilentlyContinue).Count
+    if ($activeItems -gt 0) {
+        Write-Error "Final Post-Condition Failed: tasks/active is not recursively empty."
+        exit 1
+    }
+
+    if ($Mode -in @("NEW_PRODUCT", "EXISTING_PRODUCT")) {
+        $completedItems = (Get-ChildItem -Path $completedDir -Recurse -ErrorAction SilentlyContinue).Count
+        if ($completedItems -gt 0) {
+            Write-Error "Final Post-Condition Failed: tasks/completed is not recursively empty."
+            exit 1
+        }
+    }
+
+    $handoffItems = (Get-ChildItem -Path $handoffDir -Recurse -ErrorAction SilentlyContinue).Count
+    if ($handoffItems -gt 0) {
+        Write-Error "Final Post-Condition Failed: delivery directory is not recursively empty."
+        exit 1
+    }
+
     if ($Mode -eq "NEW_PRODUCT") {
         $pDocsCount = (Get-ChildItem -Path $productDocsDir -File -ErrorAction SilentlyContinue).Count
         if ($pDocsCount -lt 6) {
             Write-Error "Final Post-Condition Failed: docs/product expected 6 files, found $pDocsCount."
+            exit 1
+        }
+    }
+
+    if ($Mode -eq "EXISTING_PRODUCT") {
+        $dstAnalysis = Join-Path -Path $reportsAnalysisDir -ChildPath "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md"
+        if (-not (Test-Path -Path $dstAnalysis)) {
+            Write-Error "Final Post-Condition Failed: EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md was not placed."
             exit 1
         }
     }

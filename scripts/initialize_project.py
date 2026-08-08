@@ -38,7 +38,6 @@ def parse_args():
     parser.add_argument("--name", default="MyNewProduct")
     parser.add_argument("--prefix", default="APP")
     parser.add_argument("--remote", default="")
-    parser.add_argument("--force", action="store_true", help="Force overwrite existing Product SSOT docs if present.")
     parser.add_argument("--dry-run", action="store_true", help="Simulate initialization without modifying files.")
     return parser.parse_args()
 
@@ -103,29 +102,55 @@ def apply_git_remote(repo_root, mode, remote_url, dry_run=False):
         print(f"[ERROR] Failed to set/verify git origin remote: {e}")
         return False
 
-def check_templates_and_ssot_protection(repo_root, mode, force=False):
+def check_templates_and_ssot_protection(repo_root, mode):
     product_tpl_dir = os.path.join(repo_root, "templates", "product")
     product_docs_dir = os.path.join(repo_root, "docs", "product")
 
     if mode == "NEW_PRODUCT":
-        # 1. Preflight template check
+        # 1. Preflight NEW_PRODUCT templates check
         for tpl in REQUIRED_PRODUCT_TEMPLATES:
             tpl_path = os.path.join(product_tpl_dir, tpl)
             if not os.path.exists(tpl_path):
                 print(f"[ERROR] Missing Product Template: '{tpl}' in templates/product/")
                 return False
 
-        # 2. Existing Product SSOT protection
-        if os.path.exists(product_docs_dir) and not force:
+        # 2. Existing Product SSOT protection (ALWAYS fail-closed, no force bypass)
+        if os.path.exists(product_docs_dir):
             existing_files = [f for f in os.listdir(product_docs_dir) if f.endswith(".md")]
             for f in existing_files:
                 fpath = os.path.join(product_docs_dir, f)
                 if os.path.isfile(fpath) and os.path.getsize(fpath) > 0:
-                    print(f"[ERROR] Existing Product SSOT detected in docs/product/'{f}'. Use --force to overwrite.")
+                    print(f"[ERROR] Existing Product SSOT detected in docs/product/'{f}'. Clean existing docs/product/ before initializing.")
                     return False
+
+    if mode == "EXISTING_PRODUCT":
+        # Preflight EXISTING_PRODUCT analysis template check
+        analysis_tpl = os.path.join(product_tpl_dir, "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")
+        if not os.path.exists(analysis_tpl):
+            print("[ERROR] Missing Product Template: 'EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md' in templates/product/")
+            return False
+
     return True
 
-def initialize_project(repo_root, mode, name, prefix, remote_url, force=False, dry_run=False):
+def clear_directory_recursively(target_dir):
+    if not os.path.exists(target_dir):
+        return
+    for item in os.listdir(target_dir):
+        p = os.path.join(target_dir, item)
+        if os.path.isfile(p) or os.path.islink(p):
+            os.remove(p)
+        elif os.path.isdir(p):
+            shutil.rmtree(p)
+
+def count_items_recursively(target_dir):
+    if not os.path.exists(target_dir):
+        return 0
+    total = 0
+    for root, dirs, files in os.walk(target_dir):
+        total += len(dirs) + len(files)
+    return total
+
+def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False):
     # Preflight validations
     if not check_git_repository(repo_root):
         return False
@@ -135,7 +160,7 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, force=False, d
         return False
     if not validate_remote(remote_url, mode):
         return False
-    if not check_templates_and_ssot_protection(repo_root, mode, force):
+    if not check_templates_and_ssot_protection(repo_root, mode):
         return False
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -252,24 +277,11 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, force=False, d
         with open(state_path, "w", encoding="utf-8") as f:
             f.write(state_content)
 
-        # Clear tasks/active/
-        if os.path.exists(active_dir):
-            for item in os.listdir(active_dir):
-                p = os.path.join(active_dir, item)
-                if os.path.isfile(p): os.remove(p)
-
-        # Clear tasks/completed/ for derived projects
-        if mode in ["NEW_PRODUCT", "EXISTING_PRODUCT"] and os.path.exists(completed_dir):
-            for item in os.listdir(completed_dir):
-                p = os.path.join(completed_dir, item)
-                if os.path.isfile(p): os.remove(p)
-
-        # Clear 受け渡し/ delivery dir
-        if os.path.exists(handoff_dir):
-            for item in os.listdir(handoff_dir):
-                p = os.path.join(handoff_dir, item)
-                if os.path.isfile(p): os.remove(p)
-                elif os.path.isdir(p): shutil.rmtree(p)
+        # Recursive Runtime State Reset
+        clear_directory_recursively(active_dir)
+        if mode in ["NEW_PRODUCT", "EXISTING_PRODUCT"]:
+            clear_directory_recursively(completed_dir)
+        clear_directory_recursively(handoff_dir)
 
         # NEW_PRODUCT: Populate Product SSOT in docs/product/
         if mode == "NEW_PRODUCT":
@@ -284,18 +296,43 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, force=False, d
             os.makedirs(reports_analysis_dir, exist_ok=True)
             src_analysis = os.path.join(product_templates_dir, "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")
             dst_analysis = os.path.join(reports_analysis_dir, "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")
-            if os.path.exists(src_analysis):
-                shutil.copy2(src_analysis, dst_analysis)
+            shutil.copy2(src_analysis, dst_analysis)
 
         # Final Post-condition Verification
         if not os.path.exists(profile_path) or not os.path.exists(state_path) or not os.path.exists(register_path):
             print("[ERROR] Final Post-Condition Failed: Required initialization files were not created.")
             return False
 
+        # Verify git origin
+        if mode != "TEMPLATE":
+            actual_origin = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+            if actual_origin != remote_url:
+                print(f"[ERROR] Final Post-Condition Failed: git origin '{actual_origin}' != requested '{remote_url}'.")
+                return False
+
+        # Verify recursive empty runtime directories
+        if count_items_recursively(active_dir) > 0:
+            print("[ERROR] Final Post-Condition Failed: tasks/active is not recursively empty.")
+            return False
+        if mode in ["NEW_PRODUCT", "EXISTING_PRODUCT"] and count_items_recursively(completed_dir) > 0:
+            print("[ERROR] Final Post-Condition Failed: tasks/completed is not recursively empty.")
+            return False
+        if count_items_recursively(handoff_dir) > 0:
+            print("[ERROR] Final Post-Condition Failed: delivery directory is not recursively empty.")
+            return False
+
+        # Verify NEW_PRODUCT docs/product
         if mode == "NEW_PRODUCT":
             copied = os.listdir(product_docs_dir) if os.path.exists(product_docs_dir) else []
             if len(copied) < 6:
                 print(f"[ERROR] Final Post-Condition Failed: docs/product expected 6 files, found {len(copied)}.")
+                return False
+
+        # Verify EXISTING_PRODUCT analysis template
+        if mode == "EXISTING_PRODUCT":
+            dst_analysis = os.path.join(reports_analysis_dir, "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")
+            if not os.path.exists(dst_analysis):
+                print("[ERROR] Final Post-Condition Failed: EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md was not placed.")
                 return False
 
     print(f"[{'DRY-RUN' if dry_run else 'EXEC'}] Project initialization completed successfully.")
@@ -304,7 +341,7 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, force=False, d
 def main():
     args = parse_args()
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    success = initialize_project(repo_root, args.mode, args.name, args.prefix, args.remote, args.force, args.dry_run)
+    success = initialize_project(repo_root, args.mode, args.name, args.prefix, args.remote, args.dry_run)
     if not success:
         sys.exit(1)
 
