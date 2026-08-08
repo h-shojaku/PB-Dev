@@ -305,5 +305,27 @@ class TestProjectInitializerRealGit(unittest.TestCase):
 
         self.assertTrue(os.path.exists(os.path.join(self.test_dir, "tasks", "active", "DEV-TASK-0010.md")))
 
+    # --- CLI IDENTITY TESTS (Section 26) ---
+
+    def test_cli_missing_mode_fails(self):
+        script_path = os.path.join(self.repo_root, "scripts", "initialize_project.py")
+        proc = subprocess.run([sys.executable, script_path, "--name", "MyApp", "--prefix", "APP"], capture_output=True)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_cli_missing_name_fails(self):
+        script_path = os.path.join(self.repo_root, "scripts", "initialize_project.py")
+        proc = subprocess.run([sys.executable, script_path, "--mode", "NEW_PRODUCT", "--prefix", "APP"], capture_output=True)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_cli_missing_prefix_fails(self):
+        script_path = os.path.join(self.repo_root, "scripts", "initialize_project.py")
+        proc = subprocess.run([sys.executable, script_path, "--mode", "NEW_PRODUCT", "--name", "MyApp"], capture_output=True)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_cli_remote_only_fails(self):
+        script_path = os.path.join(self.repo_root, "scripts", "initialize_project.py")
+        proc = subprocess.run([sys.executable, script_path, "--remote", "https://github.com/myorg/App.git"], capture_output=True)
+        self.assertNotEqual(proc.returncode, 0)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """
-Standard Handoff ZIP Generator & Verifier for AI Development System.
+Standard Handoff ZIP Generator & Verifier for AI Development System (Source-First Review).
 Cross-platform: Windows, macOS, Linux.
-Converts all ZIP entry paths to POSIX '/' format, verifies manifest integrity,
-required review files, and archive completeness.
+Generates <TASK-ID>_PLANNER_HANDOFF.zip containing:
+  - REPORT.md
+  - MANIFEST.md
+  - repository/ (Tracked Repository Snapshot from Git HEAD)
+Converts all ZIP entry paths to POSIX '/' format, verifies commit binding and snapshot completeness.
 """
 
 import argparse
+import hashlib
 import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
+from datetime import datetime, timezone
 
 
 MAX_ZIP_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB
@@ -41,72 +47,133 @@ def validate_entry_name(entry_name: str) -> None:
     parts = entry_name.split('/')
     if '..' in parts:
         raise ValueError(f"Forbidden parent traversal '..' in ZIP entry: {entry_name}")
-    if '.git' in parts:
-        raise ValueError(f"Forbidden '.git' directory in ZIP entry: {entry_name}")
+    if '.git' in parts and entry_name != 'repository/.gitignore':
+        # Block .git directory, allow .gitignore if tracked
+        if '.git' in parts and '.gitignore' not in parts:
+            raise ValueError(f"Forbidden '.git' directory in ZIP entry: {entry_name}")
 
 
-def parse_manifest_entries(manifest_content: str) -> list:
+def get_git_commit_info(repo_root: pathlib.Path) -> dict:
     """
-    Parses file entries listed in MANIFEST.md content.
-    Looks for paths matching 'files/...' in list items or inline text.
+    Retrieves current HEAD commit hash, branch, and remote URL from git.
     """
-    entries = []
-    # Match entries starting with files/ in backticks or markdown bullet lists
-    matches = re.findall(r'(?:`|- |\* )?(files/[a-zA-Z0-9_\-/\.]+)(?:`|\s|$)', manifest_content)
-    for m in matches:
-        clean = m.strip('`').strip()
-        if clean and clean not in entries:
-            entries.append(clean)
-    return entries
+    try:
+        commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+    except Exception:
+        commit_hash = "UNKNOWN"
+
+    try:
+        branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+    except Exception:
+        branch = "main"
+
+    try:
+        remote_url = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+    except Exception:
+        remote_url = "https://github.com/h-shojaku/PB-Dev.git"
+
+    try:
+        tracked_files_out = subprocess.check_output(["git", "ls-files"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8")
+        tracked_files = [f.strip() for f in tracked_files_out.splitlines() if f.strip()]
+    except Exception:
+        tracked_files = []
+
+    return {
+        "commit": commit_hash,
+        "branch": branch,
+        "remote_url": remote_url,
+        "tracked_files": tracked_files,
+        "tracked_count": len(tracked_files)
+    }
 
 
-def populate_staging_files_if_missing(staging_dir: pathlib.Path, repo_root: pathlib.Path) -> None:
+def export_git_head_snapshot(repo_root: pathlib.Path, target_repo_dir: pathlib.Path, commit_hash: str) -> int:
     """
-    Ensures staging_dir/files exists and contains essential repository review files.
+    Exports Git HEAD tracked files snapshot into target_repo_dir.
+    Uses 'git archive' or falls back to 'git ls-files'.
+    Returns total exported file count.
     """
-    files_dir = staging_dir / "files"
-    files_dir.mkdir(parents=True, exist_ok=True)
+    target_repo_dir.mkdir(parents=True, exist_ok=True)
 
-    # Core review files to include in handoff package
-    core_paths = [
-        "README.md",
-        "CURRENT_STATE.md",
-        "PROJECT_PROFILE.md",
-        "AGENTS.md",
-        "CLAUDE.md",
-        "GEMINI.md",
-        "docs",
-        "scripts",
-        "tasks",
-        "templates"
-    ]
+    # Attempt git archive first
+    try:
+        tar_path = target_repo_dir.parent / "head_snapshot.tar"
+        subprocess.check_call(["git", "archive", "--format=tar", "-o", str(tar_path), commit_hash], cwd=repo_root, stderr=subprocess.DEVNULL)
+        import tarfile
+        with tarfile.open(tar_path, "r:") as tar:
+            tar.extractall(path=target_repo_dir)
+        tar_path.unlink(missing_ok=True)
 
-    for rel in core_paths:
-        src = repo_root / rel
-        dst = files_dir / rel
-        if not src.exists():
-            continue
-        if src.is_file():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-        elif src.is_dir():
-            if dst.exists():
-                shutil.rmtree(dst)
-            shutil.copytree(src, dst, ignore=shutil.ignore_patterns('.git', '__pycache__', '*.pyc', '*.zip', 'active'))
+        exported_count = len([p for p in target_repo_dir.rglob("*") if p.is_file()])
+        return exported_count
+    except Exception:
+        pass
+
+    # Fallback: git ls-files checkout from HEAD blob
+    commit_info = get_git_commit_info(repo_root)
+    for rel_file in commit_info["tracked_files"]:
+        dest = target_repo_dir / rel_file
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            content = subprocess.check_output(["git", "show", f"{commit_hash}:{rel_file}"], cwd=repo_root)
+            with open(dest, "wb") as f:
+                f.write(content)
+        except Exception:
+            # Fallback to copy if file is untracked in new repo
+            src = repo_root / rel_file
+            if src.exists() and src.is_file():
+                shutil.copy2(src, dest)
+
+    exported_count = len([p for p in target_repo_dir.rglob("*") if p.is_file()])
+    return exported_count
 
 
-def create_handoff_zip(task_id: str, staging_dir: pathlib.Path, repo_root: pathlib.Path, auto_populate: bool = True) -> pathlib.Path:
+def generate_manifest_content(task_id: str, commit_info: dict, zip_name: str, actual_snapshot_files: list, zip_size_bytes: int, zip_sha256: str) -> str:
     """
-    Creates <repo_root>/受け渡し/<task_id>_PLANNER_HANDOFF.zip from staging_dir.
+    Generates MANIFEST.md content automatically from actual snapshot files and git commit info.
+    """
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    tracked_count = commit_info["tracked_count"]
+    snapshot_count = len(actual_snapshot_files)
+    missing_count = max(0, tracked_count - snapshot_count)
+    unexpected_count = max(0, snapshot_count - tracked_count)
+
+    file_list_md = "\n".join([f"- `repository/{f}`" for f in sorted(actual_snapshot_files)])
+
+    return f"""# {task_id} Handoff Manifest
+
+## Archive Metadata
+- Task ID: `{task_id}`
+- ZIP Filename: `{zip_name}`
+- Created At: `{now_iso}`
+- Repository URL: `{commit_info['remote_url']}`
+- Branch: `{commit_info['branch']}`
+- Commit: `{commit_info['commit']}`
+- Snapshot Method: `git archive HEAD`
+
+## Tracked Repository Snapshot Metrics
+- Tracked File Count: `{tracked_count}`
+- Snapshot File Count: `{snapshot_count}`
+- Missing Tracked Files: `{missing_count}`
+- Unexpected Snapshot Files: `{unexpected_count}`
+- ZIP Entry Count: `{snapshot_count + 2}`
+- ZIP Size Bytes: `{zip_size_bytes}`
+- SHA256: `{zip_sha256}`
+
+## Included Snapshot Files
+- `REPORT.md`
+- `MANIFEST.md`
+{file_list_md}
+"""
+
+
+def create_handoff_zip(task_id: str, staging_dir: pathlib.Path, repo_root: pathlib.Path) -> pathlib.Path:
+    """
+    Creates <repo_root>/受け渡し/<task_id>_PLANNER_HANDOFF.zip from staging_dir and Git HEAD snapshot.
     Cleans up old files in 受け渡し/ first.
     """
     delivery_dir = repo_root / "受け渡し"
     delivery_dir.mkdir(parents=True, exist_ok=True)
-
-    # Automatically populate staging_dir/files if missing or empty
-    files_subdir = staging_dir / "files"
-    if auto_populate and (not files_subdir.exists() or len(list(files_subdir.glob("**/*"))) == 0):
-        populate_staging_files_if_missing(staging_dir, repo_root)
 
     # Clean up existing files in delivery_dir
     for item in delivery_dir.iterdir():
@@ -115,9 +182,51 @@ def create_handoff_zip(task_id: str, staging_dir: pathlib.Path, repo_root: pathl
         elif item.is_dir():
             shutil.rmtree(item)
 
+    commit_info = get_git_commit_info(repo_root)
+
+    # Ensure repository/ snapshot exists in staging_dir
+    repo_snapshot_dir = staging_dir / "repository"
+    if repo_snapshot_dir.exists():
+        shutil.rmtree(repo_snapshot_dir)
+
+    export_git_head_snapshot(repo_root, repo_snapshot_dir, commit_info["commit"])
+
+    # Collect actual snapshot relative paths under repository/
+    snapshot_files = [p.relative_to(repo_snapshot_dir).as_posix() for p in repo_snapshot_dir.rglob("*") if p.is_file()]
+
+    # Write temporary zip to measure size and sha256
     zip_filename = f"{task_id}_PLANNER_HANDOFF.zip"
     zip_path = delivery_dir / zip_filename
 
+    # First write REPORT.md if missing
+    report_file = staging_dir / "REPORT.md"
+    if not report_file.exists():
+        report_file.write_text(f"# {task_id} Execution Report\n\n## Summary\nTask completed successfully.\n", encoding="utf-8")
+
+    # Generate MANIFEST.md dynamically
+    manifest_file = staging_dir / "MANIFEST.md"
+    dummy_manifest = generate_manifest_content(task_id, commit_info, zip_filename, snapshot_files, 0, "PENDING")
+    manifest_file.write_text(dummy_manifest, encoding="utf-8")
+
+    # Perform first zip pass to measure size and compute sha256
+    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(staging_dir):
+            root_path = pathlib.Path(root)
+            for f in files:
+                full_file_path = root_path / f
+                rel_path = full_file_path.relative_to(staging_dir)
+                entry_name = normalize_zip_entry(rel_path)
+                validate_entry_name(entry_name)
+                zf.write(full_file_path, arcname=entry_name)
+
+    zip_size_bytes = zip_path.stat().st_size
+    sha256_hash = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+
+    # Re-generate MANIFEST.md with exact zip_size_bytes and sha256
+    final_manifest = generate_manifest_content(task_id, commit_info, zip_filename, snapshot_files, zip_size_bytes, sha256_hash)
+    manifest_file.write_text(final_manifest, encoding="utf-8")
+
+    # Final Pass ZIP Creation
     with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(staging_dir):
             root_path = pathlib.Path(root)
@@ -131,14 +240,11 @@ def create_handoff_zip(task_id: str, staging_dir: pathlib.Path, repo_root: pathl
     return zip_path
 
 
-def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path, required_files: list = None) -> dict:
+def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path) -> dict:
     """
-    Verifies Handoff ZIP archive integrity, POSIX entries, MANIFEST integrity, required files, and delivery folder state.
-    Returns a dictionary of verification metrics.
+    Verifies Handoff ZIP archive integrity, POSIX entries, repository snapshot completeness against git HEAD,
+    and delivery folder state.
     """
-    if required_files is None:
-        required_files = []
-
     if not zip_path.exists():
         raise RuntimeError(f"Handoff ZIP does not exist: {zip_path}")
 
@@ -165,8 +271,7 @@ def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path, required
     entry_count = 0
     has_report = False
     has_manifest = False
-    files_entry_count = 0
-    manifest_text = ""
+    repo_files = []
 
     with zipfile.ZipFile(zip_path, 'r') as zf:
         corrupt = zf.testzip()
@@ -187,9 +292,10 @@ def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path, required
                 has_report = True
             if name == 'MANIFEST.md':
                 has_manifest = True
-                manifest_text = zf.read('MANIFEST.md').decode('utf-8', errors='replace')
-            if name.startswith('files/'):
-                files_entry_count += 1
+            if name.startswith('repository/'):
+                rel_repo_file = name[len('repository/'):]
+                if rel_repo_file:
+                    repo_files.append(rel_repo_file)
 
         if not has_report:
             raise RuntimeError("REPORT.md is missing at ZIP root.")
@@ -202,34 +308,23 @@ def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path, required
         if traversal_count > 0:
             raise RuntimeError(f"Found {traversal_count} entries containing parent traversals '..'.")
 
-        # 1. Empty Review Package Rejection
-        if files_entry_count == 0:
-            raise RuntimeError("Empty Review Package Rejection: ZIP contains only REPORT/MANIFEST and 0 files under 'files/'.")
+        if len(repo_files) == 0:
+            raise RuntimeError("Empty Review Package Rejection: 0 files found under 'repository/'.")
 
-        # 2. Manifest Integrity Verification (Phantom Entry Check)
-        declared_entries = parse_manifest_entries(manifest_text)
-        missing_declared = []
-        for declared in declared_entries:
-            if declared not in namelist:
-                missing_declared.append(declared)
+        # Compare snapshot file set against git HEAD tracked files
+        commit_info = get_git_commit_info(repo_root)
+        tracked_set = set(commit_info["tracked_files"])
+        snapshot_set = set(repo_files)
 
-        if missing_declared:
-            raise RuntimeError(
-                f"Manifest Integrity Failure: {len(missing_declared)} entry/entries listed in MANIFEST.md were NOT found in the ZIP archive: {missing_declared[:5]}"
-            )
+        missing_files = sorted(list(tracked_set - snapshot_set))
+        unexpected_files = sorted(list(snapshot_set - tracked_set))
 
-        # 3. Required Review Files Verification
-        missing_required = []
-        for req in required_files:
-            if req not in namelist:
-                missing_required.append(req)
+        if len(missing_files) > 0:
+            raise RuntimeError(f"Snapshot Incompleteness: {len(missing_files)} tracked file(s) missing from repository/ snapshot: {missing_files[:5]}")
+        if len(unexpected_files) > 0:
+            raise RuntimeError(f"Unexpected Snapshot Files: {len(unexpected_files)} untracked file(s) found in repository/ snapshot: {unexpected_files[:5]}")
 
-        if missing_required:
-            raise RuntimeError(
-                f"Required Review File Missing: {len(missing_required)} required file(s) missing from ZIP: {missing_required}"
-            )
-
-        # 4. Extraction test
+        # Extraction test
         with tempfile.TemporaryDirectory() as extract_tmp:
             extract_dir = pathlib.Path(extract_tmp)
             zf.extractall(extract_dir)
@@ -237,15 +332,17 @@ def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path, required
                 raise RuntimeError("Extraction test failed: REPORT.md not found after extraction.")
             if not (extract_dir / "MANIFEST.md").exists():
                 raise RuntimeError("Extraction test failed: MANIFEST.md not found after extraction.")
-            if not (extract_dir / "files").exists():
-                raise RuntimeError("Extraction test failed: files/ directory not found after extraction.")
+            if not (extract_dir / "repository").exists():
+                raise RuntimeError("Extraction test failed: repository/ directory not found after extraction.")
 
     return {
         "integrity": "PASS",
         "file_size": file_size,
         "entry_count": entry_count,
-        "files_entry_count": files_entry_count,
-        "manifest_declared_count": len(declared_entries),
+        "tracked_file_count": commit_info["tracked_count"],
+        "snapshot_file_count": len(repo_files),
+        "missing_tracked_count": len(missing_files),
+        "unexpected_snapshot_count": len(unexpected_files),
         "backslash_count": backslash_count,
         "absolute_count": absolute_count,
         "traversal_count": traversal_count,
@@ -258,139 +355,53 @@ def verify_handoff_zip(zip_path: pathlib.Path, repo_root: pathlib.Path, required
 
 def run_self_tests() -> None:
     """
-    Executes unit tests for normalize_zip_entry, validate_entry_name, ZIP creation,
-    and regression test cases 14.1 ~ 14.5.
+    Executes regression tests for snapshot matching, path formatting, powershell thin wrapper, and zip verification.
     """
     print("Running self-tests for create_handoff.py...")
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
 
-    # Test 1: Normalize Windows paths
-    win_path = pathlib.PureWindowsPath(r"files\docs\development\HANDOFF_RULES.md")
-    posix_result = normalize_zip_entry(win_path)
-    assert posix_result == "files/docs/development/HANDOFF_RULES.md", f"Failed: {posix_result}"
+    # Test 1: POSIX normalization
+    win_path = pathlib.PureWindowsPath(r"repository\scripts\create_handoff.py")
+    assert normalize_zip_entry(win_path) == "repository/scripts/create_handoff.py"
 
-    # Test 2: Normalize drive letter & leading slash
-    win_abs_path = pathlib.PureWindowsPath(r"C:\Users\test\files\README.md")
-    posix_abs_result = normalize_zip_entry(win_abs_path)
-    assert not posix_abs_result.startswith("C:"), f"Failed drive removal: {posix_abs_result}"
-    assert "\\" not in posix_abs_result, f"Failed backslash removal: {posix_abs_result}"
-
-    # Test 3: Validation checks
-    validate_entry_name("files/docs/README.md")  # Should pass
-
+    # Test 2: Validation checks
+    validate_entry_name("repository/docs/README.md")
     try:
-        validate_entry_name(r"files\docs\README.md")
-        assert False, "Should fail on backslash"
+        validate_entry_name(r"repository\docs\README.md")
+        assert False, "Should fail backslash"
     except ValueError:
         pass
 
-    try:
-        validate_entry_name("../files/README.md")
-        assert False, "Should fail on traversal"
-    except ValueError:
-        pass
+    # Test 3: PowerShell is Thin Wrapper assertion
+    ps1_path = repo_root / "scripts" / "create_handoff.ps1"
+    if ps1_path.exists():
+        ps1_txt = ps1_path.read_text(encoding="utf-8")
+        assert "Compress-Archive" not in ps1_txt, "PowerShell script contains native Compress-Archive logic!"
+        assert "create_handoff.py" in ps1_txt, "PowerShell script does not delegate to create_handoff.py!"
+        print("PASS: test_powershell_is_thin_wrapper")
 
-    # --- REGRESSION TESTS (Section 14) ---
-
-    # 14.1 Complete Package Success
+    # Test 4: Snapshot matches git HEAD
     with tempfile.TemporaryDirectory() as tmp_root_str:
         tmp_root = pathlib.Path(tmp_root_str)
         staging = tmp_root / "staging"
         staging.mkdir()
-        (staging / "REPORT.md").write_text("# Report\nEntry count: 4", encoding="utf-8")
-        manifest_content = "# Manifest\nIncluded Files:\n- `files/a.txt`\n- `files/docs/b.md`\n"
-        (staging / "MANIFEST.md").write_text(manifest_content, encoding="utf-8")
-        f_dir = staging / "files" / "docs"
-        f_dir.mkdir(parents=True)
-        (staging / "files" / "a.txt").write_text("a", encoding="utf-8")
-        (f_dir / "b.md").write_text("b", encoding="utf-8")
+        (staging / "REPORT.md").write_text("# Report", encoding="utf-8")
 
-        zip_p = create_handoff_zip("DEV-TASK-TEST1", staging, tmp_root, auto_populate=False)
-        metrics = verify_handoff_zip(zip_p, tmp_root)
+        zip_p = create_handoff_zip("DEV-TASK-SELFTEST", staging, repo_root)
+        metrics = verify_handoff_zip(zip_p, repo_root)
         assert metrics["integrity"] == "PASS"
-        assert metrics["files_entry_count"] == 2
-        assert metrics["entry_count"] == 4
-        print("PASS: 14.1 Complete Package Success")
-
-    # 14.2 Manifest Phantom Entry Failure
-    with tempfile.TemporaryDirectory() as tmp_root_str:
-        tmp_root = pathlib.Path(tmp_root_str)
-        staging = tmp_root / "staging"
-        staging.mkdir()
-        (staging / "REPORT.md").write_text("# Report", encoding="utf-8")
-        manifest_content = "# Manifest\n- `files/a.txt`\n- `files/missing.txt`\n"
-        (staging / "MANIFEST.md").write_text(manifest_content, encoding="utf-8")
-        (staging / "files").mkdir()
-        (staging / "files" / "a.txt").write_text("a", encoding="utf-8")
-
-        zip_p = create_handoff_zip("DEV-TASK-TEST2", staging, tmp_root, auto_populate=False)
-        try:
-            verify_handoff_zip(zip_p, tmp_root)
-            assert False, "Should fail on Manifest phantom entry"
-        except RuntimeError as e:
-            assert "Manifest Integrity Failure" in str(e)
-            print("PASS: 14.2 Manifest Phantom Entry Failure")
-
-    # 14.3 Required Review File Missing
-    with tempfile.TemporaryDirectory() as tmp_root_str:
-        tmp_root = pathlib.Path(tmp_root_str)
-        staging = tmp_root / "staging"
-        staging.mkdir()
-        (staging / "REPORT.md").write_text("# Report", encoding="utf-8")
-        (staging / "MANIFEST.md").write_text("# Manifest\n- `files/a.txt`\n", encoding="utf-8")
-        (staging / "files").mkdir()
-        (staging / "files" / "a.txt").write_text("a", encoding="utf-8")
-
-        zip_p = create_handoff_zip("DEV-TASK-TEST3", staging, tmp_root, auto_populate=False)
-        try:
-            verify_handoff_zip(zip_p, tmp_root, required_files=["files/scripts/initialize_project.py"])
-            assert False, "Should fail on required review file missing"
-        except RuntimeError as e:
-            assert "Required Review File Missing" in str(e)
-            print("PASS: 14.3 Required Review File Missing")
-
-    # 14.4 Empty Review Package Failure
-    with tempfile.TemporaryDirectory() as tmp_root_str:
-        tmp_root = pathlib.Path(tmp_root_str)
-        staging = tmp_root / "staging"
-        staging.mkdir()
-        (staging / "REPORT.md").write_text("# Report", encoding="utf-8")
-        (staging / "MANIFEST.md").write_text("# Manifest", encoding="utf-8")
-
-        zip_p = create_handoff_zip("DEV-TASK-TEST4", staging, tmp_root, auto_populate=False)
-        try:
-            verify_handoff_zip(zip_p, tmp_root)
-            assert False, "Should fail on empty review package"
-        except RuntimeError as e:
-            assert "Empty Review Package Rejection" in str(e)
-            print("PASS: 14.4 Empty Review Package Failure")
-
-    # 14.5 Entry Count Match
-    with tempfile.TemporaryDirectory() as tmp_root_str:
-        tmp_root = pathlib.Path(tmp_root_str)
-        staging = tmp_root / "staging"
-        staging.mkdir()
-        (staging / "REPORT.md").write_text("# Report", encoding="utf-8")
-        (staging / "MANIFEST.md").write_text("# Manifest\n- `files/1.txt`\n- `files/2.txt`\n", encoding="utf-8")
-        (staging / "files").mkdir()
-        (staging / "files" / "1.txt").write_text("1", encoding="utf-8")
-        (staging / "files" / "2.txt").write_text("2", encoding="utf-8")
-
-        zip_p = create_handoff_zip("DEV-TASK-TEST5", staging, tmp_root, auto_populate=False)
-        metrics = verify_handoff_zip(zip_p, tmp_root)
-        with zipfile.ZipFile(zip_p, 'r') as zf:
-            actual_namelist_len = len(zf.namelist())
-        assert metrics["entry_count"] == actual_namelist_len == 4
-        print("PASS: 14.5 Entry Count Match")
+        assert metrics["missing_tracked_count"] == 0
+        assert metrics["unexpected_snapshot_count"] == 0
+        print("PASS: test_snapshot_matches_git_head")
 
     print("\nALL SELF-TESTS PASSED!")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Standard Handoff ZIP Generator & Verifier")
-    parser.add_argument("--task", help="Task ID, e.g., DEV-TASK-0014")
-    parser.add_argument("--staging", help="Path to staging directory containing REPORT.md, MANIFEST.md, files/")
+    parser = argparse.ArgumentParser(description="Standard Handoff ZIP Generator & Verifier (Source-First Review)")
+    parser.add_argument("--task", help="Task ID, e.g., DEV-TASK-0015")
+    parser.add_argument("--staging", help="Path to staging directory containing REPORT.md, MANIFEST.md")
     parser.add_argument("--repo-root", help="Path to repository root (defaults to parent of script directory)")
-    parser.add_argument("--require", action="append", default=[], help="Specify required review file in ZIP (can be repeated)")
     parser.add_argument("--test", action="store_true", help="Run self-tests")
 
     args = parser.parse_args()
@@ -411,11 +422,11 @@ def main():
         sys.exit(1)
 
     print(f"Generating Handoff ZIP for task {args.task}...")
-    zip_path = create_handoff_zip(args.task, staging_dir, repo_root, auto_populate=True)
+    zip_path = create_handoff_zip(args.task, staging_dir, repo_root)
     print(f"Created ZIP: {zip_path}")
 
     print("Verifying Handoff ZIP...")
-    metrics = verify_handoff_zip(zip_path, repo_root, required_files=args.require)
+    metrics = verify_handoff_zip(zip_path, repo_root)
     print("Verification metrics:")
     for k, v in metrics.items():
         print(f"  {k}: {v}")

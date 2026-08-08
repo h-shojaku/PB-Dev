@@ -1,65 +1,23 @@
-# Task Rules
+# Task Rules (タスク運用規定)
 
-## 1. Purpose
-本ドキュメント（`TASK_RULES.md`）は、PlannerからBuilderへ投入されるTaskのID命名規則、受け入れ手続き（Task Intake）、ライフサイクル管理、状態更新、および永続化に関する開発標準を定義します。
+## 1. Task Standard Location
+すべての Task 定義書はリポジトリの以下の標準ディレクトリで管理されます。
 
-## 2. Task ID & Filename Standard
-Taskの識別子（Task ID）およびファイル名は、以下の統一ルールに従います。
+- **実行中 Active Task**: `tasks/active/<TASK-ID>.md` (常に最大 1 個)
+- **完了完了 Completed Task**: `tasks/completed/<TASK-ID>.md`
 
-- **標準フォーマット**: `<PREFIX>-TASK-XXXX`
-- **Prefix**: リポジトリまたは製品を特定する固定識別子（当 `PB-Dev` リポジトリでは `DEV` を使用。例: `DEV-TASK-0008`）。
-- **Sequence**: 4桁ゼロ埋めの連番（`0001`, `0002`...）。一度使用したTask IDは別目的で再利用してはなりません。
-- **Filename**: `<TASK-ID>.md` （例: `DEV-TASK-0008.md`）。不要な装飾や拡張文字列を付与してはなりません。
+---
 
-## 3. One Active Task Principle
-- 当標準運用では、Builderが同時に着手・実行するTaskは原則 **1件のみ** とします。
-- `tasks/active/` には常に現在実行中の1ファイルのみを配置します。複数タスクの並行着手は、人間による明示的な並列開発の指示がない限り禁止します。
+## 2. Task Identification & Lifecycle
+- **Task ID 命名規則**: `<PREFIX>-TASK-XXXX` （例: `DEV-TASK-0015`）
+- **Lifecycle Flow**:
+  1. **Intake**: Planner から受領したタスクファイルを `tasks/active/<TASK-ID>.md` に配置し、`CURRENT_STATE.md` および `tasks/TASK_REGISTER.md` を `ACTIVE` に更新して Commit & Push。
+  2. **Execution**: 指示に従い実装・ローカル検証を実行。適応型ワークフロー（[ADAPTATION_RULES.md](ADAPTATION_RULES.md)）に基づき、目的に最適な手法を自律選択。
+  3. **Completion**: タスクファイルを `tasks/completed/<TASK-ID>.md` に移動し、`CURRENT_STATE.md` (`AWAITING_PLANNER_REVIEW`) および `TASK_REGISTER.md` (`COMPLETED`) を更新して Commit & Push。
+  4. **Handoff Generation**: `git archive HEAD` による Tracked Repository Snapshot（`repository/`）を含む Handoff ZIP を生成。
 
-## 4. Task Instruction Immutability (Instructionの不変性)
-- Plannerから受領したTask文書は、そのTaskにおける「指示レコード（Instruction Record）」であり、**不可変（Immutable）** です。
-- Builderは、実装を容易にするため、あるいは自己の都合により、Task本文の要件、目的、受入条件（Acceptance Criteria）を書き換えてはなりません。
-- タスク実行中に判明した課題・結果・補足説明は、`REPORT.md` やコード、コミットメッセージに記録します。
+---
 
-## 5. Standard Task Lifecycle & State Sync
-Taskは以下の標準ステップに従って処理され、`TASK_REGISTER.md` および `CURRENT_STATE.md` と完全に同期されます。
-
-```text
-Plannerが Task を作成 (1 Task = 1 Markdown file)
-  ↓
-人間が Task を Builder に提供
-  ↓
-Builder Task Intake (ID検証、重複・衝突チェック)
-  ↓
-`tasks/active/<TASK-ID>.md` へ正式登録
-  ↓
-`tasks/TASK_REGISTER.md` (ACTIVE) & `CURRENT_STATE.md` (Workflow Phase: ACTIVE) を更新
-  ↓
-Task Intake Commit & Push (`<TASK-ID>: register task`)
-  ↓
-Task 実行 & 検証 (Builder Verification)
-  ↓
-(完了時) `tasks/completed/<TASK-ID>.md` へ移動
-  ↓
-`tasks/TASK_REGISTER.md` (COMPLETED) & `CURRENT_STATE.md` (Workflow Phase: AWAITING_PLANNER_REVIEW) を更新
-  ↓
-Final Commit & Push (`<TASK-ID>: <summary>`)
-  ↓
-標準スクリプトによる Handoff ZIP (`受け渡し/<TASK-ID>_PLANNER_HANDOFF.zip`) 生成 & 自動検証
-  ↓
-Planner Review Gate (ACCEPTED / CHANGES_REQUIRED / HUMAN_DECISION_REQUIRED)
-```
-
-## 6. Task Intake Procedure & Persistence
-1. **Intake チェック**: BuilderはTaskを受領した直後、Task IDの形式、重複の有無、`tasks/active/` に他タスクが存在しないかを確認します。
-2. **正式登録 & 状態更新**: Task文書を `tasks/active/<TASK-ID>.md` に配置し、`tasks/TASK_REGISTER.md` の Current Active Task 欄を更新するとともに、`CURRENT_STATE.md` の Workflow Phase を `ACTIVE`、Current Task を `<TASK-ID>` に更新します。
-3. **受付の永続化 (Commit & Push)**: セッション中断やPC障害等による状態喪失を防ぐため、実装開始前にタスク受付状態を GitHub へ `commit` & `push` します（メッセージ例: `<TASK-ID>: register task`）。
-
-## 7. Task Completion & Register Update
-- タスクの受入条件（Acceptance Criteria）を満たし、検証が完了した時点で、タスクファイルを `tasks/active/` から `tasks/completed/<TASK-ID>.md` へ移動します。
-- `tasks/TASK_REGISTER.md` の状態を `COMPLETED` に更新し、完了日を記録します。
-- `CURRENT_STATE.md` の Workflow Phase を `AWAITING_PLANNER_REVIEW`、Current Task を `None`、Latest Completed Task を `<TASK-ID>` に更新します。
-
-## 8. BLOCKED Lifecycle
-- 人間判断や技術的障害により作業を一時停止（BLOCK）する場合、タスクファイルは `tasks/active/` に維持し、`tasks/completed/` へ移動してはなりません。
-- `tasks/TASK_REGISTER.md` の状態を `BLOCKED` に更新し、`CURRENT_STATE.md` の Workflow Phase を `BLOCKED`、Human Decision Status を `Required` に更新します。
-- `REPORT.md` に理由と選択肢を明記します。同一スコープの継続であれば同じTask IDで再開可能です。仕様そのものが変更される場合は新Taskを発行します。
+## 3. Adaptive Procedure Authority (適応的手順変更権限)
+- Builder はタスクの目的・受入条件・SSOT・セーフティ制約を満たす範囲内において、指示書に記載された内部手順や使用ユーティリティを、より確実で堅牢な代替手法へ自律的に切り替える権限を持ちます。
+- 手順の切り替えにあたり、人間や Planner への確認要求は不要です（Scope 変更を伴う場合を除く）。

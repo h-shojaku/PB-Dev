@@ -3,9 +3,15 @@
 
 [CmdletBinding()]
 param (
-    [string]$Mode = "NEW_PRODUCT",
-    [string]$Name = "MyNewProduct",
-    [string]$Prefix = "APP",
+    [Parameter(Mandatory=$true)]
+    [string]$Mode,
+
+    [Parameter(Mandatory=$true)]
+    [string]$Name,
+
+    [Parameter(Mandatory=$true)]
+    [string]$Prefix,
+
     [string]$Remote = "",
     [switch]$DryRun
 )

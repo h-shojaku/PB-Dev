@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| DEV-TASK-0015 | ACTIVE | tasks/active/DEV-TASK-0015.md | 2026-08-08 | Source-First Review・Tracked Repository Snapshot・Adaptive Workflow標準化 |
+| (なし) | - | - | - | 現在進行中のActive Taskはありません |
 
 ## Task History
 
@@ -26,3 +26,4 @@
 | DEV-TASK-0012 | COMPLETED | tasks/completed/DEV-TASK-0012.md | 2026-08-08 | 2026-08-08 | Initializer安全バイパス撤去・Runtime Reset完全化・最終受入 |
 | DEV-TASK-0013 | COMPLETED | tasks/completed/DEV-TASK-0013.md | 2026-08-08 | 2026-08-08 | 実Template Clone初期化・PowerShell完全Thin Wrapper・最終受入 |
 | DEV-TASK-0014 | COMPLETED | tasks/completed/DEV-TASK-0014.md | 2026-08-08 | 2026-08-08 | Handoff完全性保証・Manifest整合・DEV-TASK-0013最終再提出 |
+| DEV-TASK-0015 | COMPLETED | tasks/completed/DEV-TASK-0015.md | 2026-08-08 | 2026-08-08 | Source-First Review・Tracked Repository Snapshot・Adaptive Workflow標準化 |

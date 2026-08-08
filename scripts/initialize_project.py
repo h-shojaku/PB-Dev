@@ -2,6 +2,7 @@
 """
 Project Initializer for AI Development System (Canonical Python Implementation).
 Ensures safe, fail-closed initialization for NEW_PRODUCT and EXISTING_PRODUCT modes.
+Requires explicit CLI specification of --mode, --name, --prefix, and --remote.
 """
 
 import sys
@@ -34,10 +35,10 @@ REQUIRED_PRODUCT_TEMPLATES = [
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize project profile and reset task runtime state.")
-    parser.add_argument("--mode", choices=["NEW_PRODUCT", "EXISTING_PRODUCT", "TEMPLATE"], default="NEW_PRODUCT")
-    parser.add_argument("--name", default="MyNewProduct")
-    parser.add_argument("--prefix", default="APP")
-    parser.add_argument("--remote", default="")
+    parser.add_argument("--mode", choices=["NEW_PRODUCT", "EXISTING_PRODUCT", "TEMPLATE"], required=True, help="Explicit Project Mode")
+    parser.add_argument("--name", required=True, help="Explicit Project Name")
+    parser.add_argument("--prefix", required=True, help="Explicit Task Prefix")
+    parser.add_argument("--remote", default="", help="Canonical Remote URL")
     parser.add_argument("--dry-run", action="store_true", help="Simulate initialization without modifying files.")
     return parser.parse_args()
 
@@ -57,13 +58,13 @@ def validate_remote(remote_url, mode):
     return True
 
 def validate_prefix(prefix):
-    if not re.match(UNSAFE_PREFIX_PATTERN, prefix):
+    if not prefix or not re.match(UNSAFE_PREFIX_PATTERN, prefix):
         print(f"[ERROR] Invalid Task Prefix: '{prefix}'. Must be 2-10 uppercase alphanumeric characters (e.g. APP, SE, E6).")
         return False
     return True
 
 def validate_name(name):
-    if not re.match(UNSAFE_NAME_PATTERN, name):
+    if not name or not re.match(UNSAFE_NAME_PATTERN, name):
         print(f"[ERROR] Invalid Project Name: '{name}'. Must be 2-50 alphanumeric, underscore, or hyphen characters.")
         return False
     return True
@@ -151,6 +152,9 @@ def count_items_recursively(target_dir):
 def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False):
     # Preflight validations
     if not check_git_repository(repo_root):
+        return False
+    if not mode or mode not in ["NEW_PRODUCT", "EXISTING_PRODUCT", "TEMPLATE"]:
+        print(f"[ERROR] Invalid or missing mode: '{mode}'")
         return False
     if not validate_prefix(prefix):
         return False
