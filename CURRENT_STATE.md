@@ -10,10 +10,12 @@
 - Current Branch: `main`
 
 ## Workflow Phase
-`AWAITING_PLANNER_REVIEW`
+`ACTIVE`
 
 ## Current Task
-- Task ID: `None` (現在実行中のActive Taskはありません)
+- Task ID: `DEV-TASK-0015`
+- Task Name: `Source-First Review・Tracked Repository Snapshot・Adaptive Workflow標準化`
+- Location: `tasks/active/DEV-TASK-0015.md`
 
 ## Latest Completed Task
 - Task ID: `DEV-TASK-0014`
@@ -39,8 +41,8 @@
 - Task Register: [TASK_REGISTER.md](tasks/TASK_REGISTER.md)
 
 ## Recovery Entry Point
-- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/completed/DEV-TASK-0014.md`
+- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/active/DEV-TASK-0015.md`
 - Planner: `受け渡し/DEV-TASK-0014_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
 
 ## Last Updated
-2026-08-08T10:49:00+09:00
+2026-08-08T11:16:30+09:00
