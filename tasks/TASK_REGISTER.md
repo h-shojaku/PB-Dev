@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| DEV-TASK-0011 | ACTIVE | tasks/active/DEV-TASK-0011.md | 2026-08-08 | Initializer Fail-Closed化・実Git Integration Test・最終受入補正 |
+| (なし) | - | - | - | 現在進行中のActive Taskはありません |
 
 ## Task History
 
@@ -22,3 +22,4 @@
 | DEV-TASK-0008 | COMPLETED | tasks/completed/DEV-TASK-0008.md | 2026-08-07 | 2026-08-07 | AI / Session切替・状態復元・Continuity標準化 |
 | DEV-TASK-0009 | COMPLETED | tasks/completed/DEV-TASK-0009.md | 2026-08-08 | 2026-08-08 | Definition of Done・Project初期化・Template Repository最終統合 |
 | DEV-TASK-0010 | COMPLETED | tasks/completed/DEV-TASK-0010.md | 2026-08-08 | 2026-08-08 | Project Initializer実動作修正・Template最終受入 |
+| DEV-TASK-0011 | COMPLETED | tasks/completed/DEV-TASK-0011.md | 2026-08-08 | 2026-08-08 | Initializer Fail-Closed化・実Git Integration Test・最終受入補正 |
