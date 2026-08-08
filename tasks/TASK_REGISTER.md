@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| (なし) | - | - | - | 現在進行中のActive Taskはありません |
+| DEV-TASK-0016 | ACTIVE | tasks/active/DEV-TASK-0016.md | 2026-08-08 | Source-First Handoff安定化・Offline Planner Reproduction・Evidence単一化 |
 
 ## Task History
 

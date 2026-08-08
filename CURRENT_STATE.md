@@ -10,10 +10,12 @@
 - Current Branch: `main`
 
 ## Workflow Phase
-`AWAITING_PLANNER_REVIEW`
+`ACTIVE`
 
 ## Current Task
-- Task ID: `None` (現在実行中のActive Taskはありません)
+- Task ID: `DEV-TASK-0016`
+- Task Name: `Source-First Handoff安定化・Offline Planner Reproduction・Evidence単一化`
+- Location: `tasks/active/DEV-TASK-0016.md`
 
 ## Latest Completed Task
 - Task ID: `DEV-TASK-0015`
@@ -41,8 +43,8 @@
 - Task Register: [TASK_REGISTER.md](tasks/TASK_REGISTER.md)
 
 ## Recovery Entry Point
-- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/completed/DEV-TASK-0015.md`
+- Builder: `README.md` -> `AGENTS.md` -> `CURRENT_STATE.md` -> `tasks/active/DEV-TASK-0016.md`
 - Planner: `受け渡し/DEV-TASK-0015_PLANNER_HANDOFF.zip` (または最新のHandoff ZIP)
 
 ## Last Updated
-2026-08-08T11:36:40+09:00
+2026-08-08T13:43:30+09:00
