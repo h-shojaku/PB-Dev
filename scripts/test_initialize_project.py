@@ -41,8 +41,8 @@ class TestProjectInitializerRealGit(unittest.TestCase):
             f.write("Dummy ZIP")
 
         # Copy actual templates from repository root to mock repo
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        actual_tpl_dir = os.path.join(repo_root, "templates", "product")
+        self.repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        actual_tpl_dir = os.path.join(self.repo_root, "templates", "product")
         if os.path.exists(actual_tpl_dir):
             for item in os.listdir(actual_tpl_dir):
                 s = os.path.join(actual_tpl_dir, item)
@@ -102,6 +102,61 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         analysis_file = os.path.join(self.test_dir, "reports", "analysis", "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")
         self.assertTrue(os.path.exists(analysis_file))
 
+    def test_actual_template_new_product_initialization(self):
+        # Test cloning actual PB-Dev repository and initializing NEW_PRODUCT
+        target = tempfile.mkdtemp(prefix="actual_pbdev_new_")
+        try:
+            # Copy entire PB-Dev repo excluding .git
+            for item in os.listdir(self.repo_root):
+                if item in [".git", "受け渡し"]:
+                    continue
+                s = os.path.join(self.repo_root, item)
+                d = os.path.join(target, item)
+                if os.path.isdir(s):
+                    shutil.copytree(s, d)
+                else:
+                    shutil.copy2(s, d)
+
+            # Init git
+            subprocess.check_call(["git", "init"], cwd=target, stderr=subprocess.DEVNULL)
+            subprocess.check_call(["git", "remote", "add", "origin", "https://github.com/h-shojaku/PB-Dev.git"], cwd=target, stderr=subprocess.DEVNULL)
+
+            remote = "https://github.com/myorg/ClonedApp.git"
+            res = initialize_project(target, "NEW_PRODUCT", "ClonedApp", "CLO", remote)
+            self.assertTrue(res)
+
+            actual_origin = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=target).decode("utf-8").strip()
+            self.assertEqual(actual_origin, remote)
+            self.assertEqual(len(os.listdir(os.path.join(target, "docs", "product"))), 6)
+        finally:
+            shutil.rmtree(target)
+
+    def test_actual_template_existing_product_initialization(self):
+        target = tempfile.mkdtemp(prefix="actual_pbdev_exist_")
+        try:
+            for item in os.listdir(self.repo_root):
+                if item in [".git", "受け渡し"]:
+                    continue
+                s = os.path.join(self.repo_root, item)
+                d = os.path.join(target, item)
+                if os.path.isdir(s):
+                    shutil.copytree(s, d)
+                else:
+                    shutil.copy2(s, d)
+
+            subprocess.check_call(["git", "init"], cwd=target, stderr=subprocess.DEVNULL)
+            subprocess.check_call(["git", "remote", "add", "origin", "https://github.com/h-shojaku/PB-Dev.git"], cwd=target, stderr=subprocess.DEVNULL)
+
+            remote = "https://github.com/myorg/ClonedExisting.git"
+            res = initialize_project(target, "EXISTING_PRODUCT", "ClonedExisting", "CLE", remote)
+            self.assertTrue(res)
+
+            actual_origin = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=target).decode("utf-8").strip()
+            self.assertEqual(actual_origin, remote)
+            self.assertTrue(os.path.exists(os.path.join(target, "reports", "analysis", "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md")))
+        finally:
+            shutil.rmtree(target)
+
     def test_fail_non_git_repository(self):
         non_git_dir = tempfile.mkdtemp(prefix="non_git_")
         try:
@@ -139,7 +194,6 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         try:
             subprocess.check_call(["git", "init"], cwd=missing_analysis_repo, stderr=subprocess.DEVNULL)
             os.makedirs(os.path.join(missing_analysis_repo, "templates", "product"), exist_ok=True)
-            # Do NOT copy EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md
             self.assertFalse(initialize_project(missing_analysis_repo, "EXISTING_PRODUCT", "App", "APP", "https://github.com/org/App.git"))
         finally:
             shutil.rmtree(missing_analysis_repo)
@@ -151,8 +205,81 @@ class TestProjectInitializerRealGit(unittest.TestCase):
             f.write("Important Custom Spec")
         self.assertFalse(initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/org/App.git"))
 
+    def test_unknown_product_file_rejected_without_mutation(self):
+        docs_p = os.path.join(self.test_dir, "docs", "product")
+        os.makedirs(docs_p, exist_ok=True)
+        unknown_file = os.path.join(docs_p, "notes.txt")
+        with open(unknown_file, "w") as f:
+            f.write("Unknown text file")
+
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/org/App.git")
+        self.assertFalse(res)
+        # Verify no mutation
+        self.assertTrue(os.path.exists(unknown_file))
+        self.assertEqual(len(os.listdir(docs_p)), 1)
+
+    def test_unknown_product_subdirectory_rejected_without_mutation(self):
+        docs_p = os.path.join(self.test_dir, "docs", "product")
+        sub_dir = os.path.join(docs_p, "legacy")
+        os.makedirs(sub_dir, exist_ok=True)
+        unknown_file = os.path.join(sub_dir, "spec.txt")
+        with open(unknown_file, "w") as f:
+            f.write("Legacy spec")
+
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "App", "APP", "https://github.com/org/App.git")
+        self.assertFalse(res)
+        # Verify no mutation
+        self.assertTrue(os.path.exists(unknown_file))
+
+    def test_powershell_is_thin_wrapper(self):
+        ps1_path = os.path.join(self.repo_root, "scripts", "initialize_project.ps1")
+        with open(ps1_path, "r", encoding="utf-8") as f:
+            ps_code = f.read()
+
+        # Assert PS1 does not contain business logic like writing PROJECT_PROFILE or clearing runtime
+        self.assertNotIn("PROJECT_PROFILE.md", ps_code)
+        self.assertNotIn("Set-Content", ps_code)
+        self.assertIn("initialize_project.py", ps_code)
+
+    def test_final_profile_postconditions(self):
+        remote = "https://github.com/myorg/ProfilePostApp.git"
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "ProfilePostApp", "PPA", remote)
+        self.assertTrue(res)
+
+        prof_p = os.path.join(self.test_dir, "PROJECT_PROFILE.md")
+        with open(prof_p, "r", encoding="utf-8") as f:
+            txt = f.read()
+        self.assertIn("Project Name: `ProfilePostApp`", txt)
+        self.assertIn("Project Mode: `NEW_PRODUCT`", txt)
+        self.assertIn("Task Prefix: `PPA`", txt)
+        self.assertIn(f"Canonical Remote: `{remote}`", txt)
+
+    def test_final_register_postconditions(self):
+        remote = "https://github.com/myorg/RegPostApp.git"
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "RegPostApp", "RPA", remote)
+        self.assertTrue(res)
+
+        reg_p = os.path.join(self.test_dir, "tasks", "TASK_REGISTER.md")
+        with open(reg_p, "r", encoding="utf-8") as f:
+            txt = f.read()
+        self.assertIn("(なし)", txt)
+        self.assertNotIn("| DEV-TASK-", txt)
+        self.assertNotIn("| RPA-TASK-", txt)
+
+    def test_final_current_state_postconditions(self):
+        remote = "https://github.com/myorg/StatePostApp.git"
+        res = initialize_project(self.test_dir, "NEW_PRODUCT", "StatePostApp", "SPA", remote)
+        self.assertTrue(res)
+
+        st_p = os.path.join(self.test_dir, "CURRENT_STATE.md")
+        with open(st_p, "r", encoding="utf-8") as f:
+            txt = f.read()
+        self.assertIn("`IDLE`", txt)
+        self.assertIn("Task ID: `None`", txt)
+        self.assertIn("Task Prefix: `SPA`", txt)
+        self.assertIn(f"Canonical Remote: `{remote}`", txt)
+
     def test_recursive_runtime_reset(self):
-        # Create nested runtime directories and files
         nested_active = os.path.join(self.test_dir, "tasks", "active", "nested", "deep")
         nested_completed = os.path.join(self.test_dir, "tasks", "completed", "sub")
         nested_handoff = os.path.join(self.test_dir, "受け渡し", "sub_dir")
@@ -167,7 +294,6 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         res = initialize_project(self.test_dir, "NEW_PRODUCT", "RecResetApp", "REC", remote)
         self.assertTrue(res)
 
-        # Assert recursively empty
         self.assertEqual(len(os.listdir(os.path.join(self.test_dir, "tasks", "active"))), 0)
         self.assertEqual(len(os.listdir(os.path.join(self.test_dir, "tasks", "completed"))), 0)
         self.assertEqual(len(os.listdir(os.path.join(self.test_dir, "受け渡し"))), 0)
@@ -177,7 +303,6 @@ class TestProjectInitializerRealGit(unittest.TestCase):
         res = initialize_project(self.test_dir, "NEW_PRODUCT", "DryRun", "DRY", remote, dry_run=True)
         self.assertTrue(res)
 
-        # Assert active task file was NOT deleted during dry run
         self.assertTrue(os.path.exists(os.path.join(self.test_dir, "tasks", "active", "DEV-TASK-0010.md")))
 
 if __name__ == "__main__":

@@ -114,14 +114,12 @@ def check_templates_and_ssot_protection(repo_root, mode):
                 print(f"[ERROR] Missing Product Template: '{tpl}' in templates/product/")
                 return False
 
-        # 2. Existing Product SSOT protection (ALWAYS fail-closed, no force bypass)
+        # 2. Existing Product SSOT protection (Fail-closed if docs/product/ is not empty)
         if os.path.exists(product_docs_dir):
-            existing_files = [f for f in os.listdir(product_docs_dir) if f.endswith(".md")]
-            for f in existing_files:
-                fpath = os.path.join(product_docs_dir, f)
-                if os.path.isfile(fpath) and os.path.getsize(fpath) > 0:
-                    print(f"[ERROR] Existing Product SSOT detected in docs/product/'{f}'. Clean existing docs/product/ before initializing.")
-                    return False
+            items = os.listdir(product_docs_dir)
+            if len(items) > 0:
+                print(f"[ERROR] Existing Product SSOT detected: 'docs/product/' contains {len(items)} item(s). Clean 'docs/product/' before initializing.")
+                return False
 
     if mode == "EXISTING_PRODUCT":
         # Preflight EXISTING_PRODUCT analysis template check
@@ -303,6 +301,27 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False)
             print("[ERROR] Final Post-Condition Failed: Required initialization files were not created.")
             return False
 
+        # Parse and verify PROJECT_PROFILE.md content
+        with open(profile_path, "r", encoding="utf-8") as f:
+            prof_txt = f.read()
+        if f"Project Name: `{name}`" not in prof_txt or f"Project Mode: `{mode}`" not in prof_txt or f"Task Prefix: `{prefix}`" not in prof_txt or f"Canonical Remote: `{remote_url}`" not in prof_txt:
+            print("[ERROR] Final Post-Condition Failed: PROJECT_PROFILE.md content verification failed.")
+            return False
+
+        # Parse and verify TASK_REGISTER.md content
+        with open(register_path, "r", encoding="utf-8") as f:
+            reg_txt = f.read()
+        if "(なし)" not in reg_txt or "| DEV-TASK-" in reg_txt or f"| {prefix}-TASK-" in reg_txt:
+            print("[ERROR] Final Post-Condition Failed: TASK_REGISTER.md content verification failed.")
+            return False
+
+        # Parse and verify CURRENT_STATE.md content
+        with open(state_path, "r", encoding="utf-8") as f:
+            st_txt = f.read()
+        if "`IDLE`" not in st_txt or "Task ID: `None`" not in st_txt or f"Task Prefix: `{prefix}`" not in st_txt or f"Canonical Remote: `{remote_url}`" not in st_txt:
+            print("[ERROR] Final Post-Condition Failed: CURRENT_STATE.md content verification failed.")
+            return False
+
         # Verify git origin
         if mode != "TEMPLATE":
             actual_origin = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
@@ -324,8 +343,8 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False)
         # Verify NEW_PRODUCT docs/product
         if mode == "NEW_PRODUCT":
             copied = os.listdir(product_docs_dir) if os.path.exists(product_docs_dir) else []
-            if len(copied) < 6:
-                print(f"[ERROR] Final Post-Condition Failed: docs/product expected 6 files, found {len(copied)}.")
+            if sorted(copied) != sorted(REQUIRED_PRODUCT_TEMPLATES):
+                print(f"[ERROR] Final Post-Condition Failed: docs/product expected exact 6 templates {REQUIRED_PRODUCT_TEMPLATES}, found {copied}.")
                 return False
 
         # Verify EXISTING_PRODUCT analysis template

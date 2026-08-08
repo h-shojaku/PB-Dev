@@ -6,7 +6,7 @@
 
 | Task ID | Status | Location | Started | Summary |
 |---|---|---|---|---|
-| DEV-TASK-0013 | ACTIVE | tasks/active/DEV-TASK-0013.md | 2026-08-08 | 実Template Clone初期化・PowerShell完全Thin Wrapper・最終受入 |
+| (なし) | - | - | - | 現在進行中のActive Taskはありません |
 
 ## Task History
 
@@ -24,3 +24,4 @@
 | DEV-TASK-0010 | COMPLETED | tasks/completed/DEV-TASK-0010.md | 2026-08-08 | 2026-08-08 | Project Initializer実動作修正・Template最終受入 |
 | DEV-TASK-0011 | COMPLETED | tasks/completed/DEV-TASK-0011.md | 2026-08-08 | 2026-08-08 | Initializer Fail-Closed化・実Git Integration Test・最終受入補正 |
 | DEV-TASK-0012 | COMPLETED | tasks/completed/DEV-TASK-0012.md | 2026-08-08 | 2026-08-08 | Initializer安全バイパス撤去・Runtime Reset完全化・最終受入 |
+| DEV-TASK-0013 | COMPLETED | tasks/completed/DEV-TASK-0013.md | 2026-08-08 | 2026-08-08 | 実Template Clone初期化・PowerShell完全Thin Wrapper・最終受入 |
