@@ -6,7 +6,7 @@ param (
     [string]$Name = "MyNewProduct",
     [string]$Prefix = "APP",
     [string]$Remote = "",
-    [switch]$AllowRemoteMismatch,
+    [switch]$Force,
     [switch]$DryRun
 )
 
@@ -50,15 +50,40 @@ if ($Mode -ne "TEMPLATE") {
 
 $repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath "..")).Path
 
-# Remote Safety Check
-if ($Mode -ne "TEMPLATE" -and -not $AllowRemoteMismatch) {
-    try {
-        $gitRemote = (git remote -v 2>$null) | Out-String
-        if ($gitRemote -like "*https://github.com/h-shojaku/PB-Dev.git*" -and $Remote -notlike "*PB-Dev.git*") {
-            Write-Error "Safety Guard: git origin remote points to PB-Dev.git! Cannot initialize derived product repository while origin points to PB-Dev."
+# 1. Git Repository Check
+try {
+    $isGit = (git -C $repoRoot rev-parse --is-inside-work-tree 2>$null).Trim()
+    if ($isGit -ne "true") {
+        Write-Error "Not a Git Repository: Project Initialization requires a valid Git repository with .git directory."
+        exit 1
+    }
+} catch {
+    Write-Error "Not a Git Repository: Project Initialization requires a valid Git repository with .git directory."
+    exit 1
+}
+
+# 2. Template and Existing SSOT Preflight Check
+$productTplDir = Join-Path -Path $repoRoot -ChildPath "templates\product"
+$productDocsDir = Join-Path -Path $repoRoot -ChildPath "docs\product"
+$requiredTpls = @("00_PRODUCT_OVERVIEW.md", "01_PRODUCT_PLAN.md", "02_REQUIREMENTS.md", "03_UI_STRUCTURE.md", "04_IMPLEMENTATION_SPEC.md", "05_OPERATION_RULES.md")
+
+if ($Mode -eq "NEW_PRODUCT") {
+    foreach ($tpl in $requiredTpls) {
+        if (-not (Test-Path -Path (Join-Path -Path $productTplDir -ChildPath $tpl))) {
+            Write-Error "Missing Product Template: '$tpl' in templates/product/"
             exit 1
         }
-    } catch {}
+    }
+
+    if ((Test-Path -Path $productDocsDir) -and -not $Force) {
+        $existingFiles = Get-ChildItem -Path $productDocsDir -File -Filter "*.md" -ErrorAction SilentlyContinue
+        foreach ($ef in $existingFiles) {
+            if ($ef.Length -gt 0) {
+                Write-Error "Existing Product SSOT detected in docs/product/'$($ef.Name)'. Use -Force to overwrite."
+                exit 1
+            }
+        }
+    }
 }
 
 $statusLabel = if ($DryRun) { "DRY-RUN" } else { "EXEC" }
@@ -75,8 +100,6 @@ $completedDir = Join-Path -Path $repoRoot -ChildPath "tasks\completed"
 $handoffDirName = [System.Text.Encoding]::UTF8.GetString([byte[]](0xE5,0x8F,0x97,0xE3,0x81,0x91,0xE6,0xB8,0xA1,0xE3,0x81,0x97))
 $handoffDir = Join-Path -Path $repoRoot -ChildPath $handoffDirName
 
-$productDocsDir = Join-Path -Path $repoRoot -ChildPath "docs\product"
-$productTplDir = Join-Path -Path $repoRoot -ChildPath "templates\product"
 $reportsAnalysisDir = Join-Path -Path $repoRoot -ChildPath "reports\analysis"
 
 $bt = '`'
@@ -135,7 +158,7 @@ $stateContent = @"
 - Project Name: $bt$Name$bt
 - Task Prefix: $bt$Prefix$bt
 - Canonical Remote: $bt$Remote$bt
-- Default Branch: ${bt}main$bt
+- Default Branch: ${bt}main${bt}
 
 ## Workflow Phase
 ${bt}IDLE${bt}
@@ -173,6 +196,21 @@ $nowIso
 "@
 
 if (-not $DryRun) {
+    # 3. Apply Git Remote
+    if ($Mode -ne "TEMPLATE" -and $Remote) {
+        $remotes = (git -C $repoRoot remote 2>$null)
+        if ($remotes -contains "origin") {
+            git -C $repoRoot remote set-url origin $Remote 2>$null
+        } else {
+            git -C $repoRoot remote add origin $Remote 2>$null
+        }
+        $actualOrigin = (git -C $repoRoot remote get-url origin 2>$null).Trim()
+        if ($actualOrigin -ne $Remote) {
+            Write-Error "Remote Mismatch: actual origin '$actualOrigin' does not match requested remote '$Remote'."
+            exit 1
+        }
+    }
+
     Set-Content -Path $profilePath -Value $profileContent -Encoding UTF8
     Set-Content -Path $registerPath -Value $registerContent -Encoding UTF8
     Set-Content -Path $statePath -Value $stateContent -Encoding UTF8
@@ -191,8 +229,7 @@ if (-not $DryRun) {
 
     if ($Mode -eq "NEW_PRODUCT") {
         if (-not (Test-Path -Path $productDocsDir)) { New-Item -ItemType Directory -Path $productDocsDir -Force | Out-Null }
-        $tplFiles = @("00_PRODUCT_OVERVIEW.md", "01_PRODUCT_PLAN.md", "02_REQUIREMENTS.md", "03_UI_STRUCTURE.md", "04_IMPLEMENTATION_SPEC.md", "05_OPERATION_RULES.md")
-        foreach ($f in $tplFiles) {
+        foreach ($f in $requiredTpls) {
             $src = Join-Path -Path $productTplDir -ChildPath $f
             if (Test-Path -Path $src) {
                 Copy-Item -Path $src -Destination (Join-Path -Path $productDocsDir -ChildPath $f) -Force
@@ -205,6 +242,20 @@ if (-not $DryRun) {
         $srcAnalysis = Join-Path -Path $productTplDir -ChildPath "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md"
         if (Test-Path -Path $srcAnalysis) {
             Copy-Item -Path $srcAnalysis -Destination (Join-Path -Path $reportsAnalysisDir -ChildPath "EXISTING_PRODUCT_ANALYSIS_TEMPLATE.md") -Force
+        }
+    }
+
+    # Final Post-Condition Verification
+    if (-not (Test-Path -Path $profilePath) -or -not (Test-Path -Path $statePath) -or -not (Test-Path -Path $registerPath)) {
+        Write-Error "Final Post-Condition Failed: Required initialization files were not created."
+        exit 1
+    }
+
+    if ($Mode -eq "NEW_PRODUCT") {
+        $pDocsCount = (Get-ChildItem -Path $productDocsDir -File -ErrorAction SilentlyContinue).Count
+        if ($pDocsCount -lt 6) {
+            Write-Error "Final Post-Condition Failed: docs/product expected 6 files, found $pDocsCount."
+            exit 1
         }
     }
 }

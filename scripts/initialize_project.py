@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Project Initializer for AI Development System (Canonical Python Implementation).
-Ensures safe initialization for NEW_PRODUCT and EXISTING_PRODUCT modes.
+Ensures safe, fail-closed initialization for NEW_PRODUCT and EXISTING_PRODUCT modes.
 """
 
 import sys
@@ -23,13 +23,22 @@ INVALID_REMOTE_PATTERNS = [
 UNSAFE_PREFIX_PATTERN = r"^[A-Z0-9]{2,10}$"
 UNSAFE_NAME_PATTERN = r"^[a-zA-Z0-9_\-]{2,50}$"
 
+REQUIRED_PRODUCT_TEMPLATES = [
+    "00_PRODUCT_OVERVIEW.md",
+    "01_PRODUCT_PLAN.md",
+    "02_REQUIREMENTS.md",
+    "03_UI_STRUCTURE.md",
+    "04_IMPLEMENTATION_SPEC.md",
+    "05_OPERATION_RULES.md"
+]
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize project profile and reset task runtime state.")
     parser.add_argument("--mode", choices=["NEW_PRODUCT", "EXISTING_PRODUCT", "TEMPLATE"], default="NEW_PRODUCT")
     parser.add_argument("--name", default="MyNewProduct")
     parser.add_argument("--prefix", default="APP")
     parser.add_argument("--remote", default="")
-    parser.add_argument("--allow-remote-mismatch", action="store_true", help="Allow origin remote mismatch during tests/bootstrap.")
+    parser.add_argument("--force", action="store_true", help="Force overwrite existing Product SSOT docs if present.")
     parser.add_argument("--dry-run", action="store_true", help="Simulate initialization without modifying files.")
     return parser.parse_args()
 
@@ -60,26 +69,73 @@ def validate_name(name):
         return False
     return True
 
-def check_remote_safety(repo_root, mode, remote_url, allow_mismatch=False):
-    if mode == "TEMPLATE" or allow_mismatch:
-        return True
+def check_git_repository(repo_root):
     try:
-        out = subprocess.check_output(["git", "remote", "-v"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8")
-        if "https://github.com/h-shojaku/PB-Dev.git" in out and "PB-Dev.git" not in remote_url:
-            print("[ERROR] Safety Guard: git origin remote points to PB-Dev.git! You cannot initialize a derived product repository while origin points to PB-Dev template remote.")
-            return False
+        out = subprocess.check_output(["git", "rev-parse", "--is-inside-work-tree"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+        if out == "true":
+            return True
     except Exception:
         pass
+    print("[ERROR] Not a Git Repository: Project Initialization requires a valid Git repository with .git directory.")
+    return False
+
+def apply_git_remote(repo_root, mode, remote_url, dry_run=False):
+    if mode == "TEMPLATE" or not remote_url:
+        return True
+    try:
+        remotes_out = subprocess.check_output(["git", "remote"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8")
+        existing_remotes = [r.strip() for r in remotes_out.splitlines() if r.strip()]
+
+        if "origin" in existing_remotes:
+            if not dry_run:
+                subprocess.check_call(["git", "remote", "set-url", "origin", remote_url], cwd=repo_root, stderr=subprocess.DEVNULL)
+        else:
+            if not dry_run:
+                subprocess.check_call(["git", "remote", "add", "origin", remote_url], cwd=repo_root, stderr=subprocess.DEVNULL)
+
+        if not dry_run:
+            actual_origin = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=repo_root, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+            if actual_origin != remote_url:
+                print(f"[ERROR] Remote Mismatch: git origin '{actual_origin}' does not match requested remote '{remote_url}'")
+                return False
+        return True
+    except Exception as e:
+        print(f"[ERROR] Failed to set/verify git origin remote: {e}")
+        return False
+
+def check_templates_and_ssot_protection(repo_root, mode, force=False):
+    product_tpl_dir = os.path.join(repo_root, "templates", "product")
+    product_docs_dir = os.path.join(repo_root, "docs", "product")
+
+    if mode == "NEW_PRODUCT":
+        # 1. Preflight template check
+        for tpl in REQUIRED_PRODUCT_TEMPLATES:
+            tpl_path = os.path.join(product_tpl_dir, tpl)
+            if not os.path.exists(tpl_path):
+                print(f"[ERROR] Missing Product Template: '{tpl}' in templates/product/")
+                return False
+
+        # 2. Existing Product SSOT protection
+        if os.path.exists(product_docs_dir) and not force:
+            existing_files = [f for f in os.listdir(product_docs_dir) if f.endswith(".md")]
+            for f in existing_files:
+                fpath = os.path.join(product_docs_dir, f)
+                if os.path.isfile(fpath) and os.path.getsize(fpath) > 0:
+                    print(f"[ERROR] Existing Product SSOT detected in docs/product/'{f}'. Use --force to overwrite.")
+                    return False
     return True
 
-def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False, allow_mismatch=False):
+def initialize_project(repo_root, mode, name, prefix, remote_url, force=False, dry_run=False):
+    # Preflight validations
+    if not check_git_repository(repo_root):
+        return False
     if not validate_prefix(prefix):
         return False
     if not validate_name(name):
         return False
     if not validate_remote(remote_url, mode):
         return False
-    if not check_remote_safety(repo_root, mode, remote_url, allow_mismatch):
+    if not check_templates_and_ssot_protection(repo_root, mode, force):
         return False
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -184,6 +240,10 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False,
 """
 
     if not dry_run:
+        # Apply git remote
+        if not apply_git_remote(repo_root, mode, remote_url, dry_run=False):
+            return False
+
         # Write Profile, Register, Current State
         with open(profile_path, "w", encoding="utf-8") as f:
             f.write(profile_content)
@@ -214,12 +274,10 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False,
         # NEW_PRODUCT: Populate Product SSOT in docs/product/
         if mode == "NEW_PRODUCT":
             os.makedirs(product_docs_dir, exist_ok=True)
-            for i in range(6):
-                fname = f"0{i}_" + ["PRODUCT_OVERVIEW.md", "PRODUCT_PLAN.md", "REQUIREMENTS.md", "UI_STRUCTURE.md", "IMPLEMENTATION_SPEC.md", "OPERATION_RULES.md"][i]
+            for fname in REQUIRED_PRODUCT_TEMPLATES:
                 src = os.path.join(product_templates_dir, fname)
                 dst = os.path.join(product_docs_dir, fname)
-                if os.path.exists(src):
-                    shutil.copy2(src, dst)
+                shutil.copy2(src, dst)
 
         # EXISTING_PRODUCT: Ensure reports/analysis/ exists with template
         if mode == "EXISTING_PRODUCT":
@@ -229,13 +287,24 @@ def initialize_project(repo_root, mode, name, prefix, remote_url, dry_run=False,
             if os.path.exists(src_analysis):
                 shutil.copy2(src_analysis, dst_analysis)
 
+        # Final Post-condition Verification
+        if not os.path.exists(profile_path) or not os.path.exists(state_path) or not os.path.exists(register_path):
+            print("[ERROR] Final Post-Condition Failed: Required initialization files were not created.")
+            return False
+
+        if mode == "NEW_PRODUCT":
+            copied = os.listdir(product_docs_dir) if os.path.exists(product_docs_dir) else []
+            if len(copied) < 6:
+                print(f"[ERROR] Final Post-Condition Failed: docs/product expected 6 files, found {len(copied)}.")
+                return False
+
     print(f"[{'DRY-RUN' if dry_run else 'EXEC'}] Project initialization completed successfully.")
     return True
 
 def main():
     args = parse_args()
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    success = initialize_project(repo_root, args.mode, args.name, args.prefix, args.remote, args.dry_run, args.allow_remote_mismatch)
+    success = initialize_project(repo_root, args.mode, args.name, args.prefix, args.remote, args.force, args.dry_run)
     if not success:
         sys.exit(1)
 
